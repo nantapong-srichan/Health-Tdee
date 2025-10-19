@@ -2,10 +2,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:image_cropper/image_cropper.dart'; 
+import 'package:image/image.dart' as img;
 import 'tflite_service.dart';
-import 'food_database.dart';
 import 'results_screen.dart';
+import 'recognition_result.dart';
 
 class ImagePickerScreen extends StatefulWidget {
   const ImagePickerScreen({super.key});
@@ -42,39 +42,39 @@ class _ImagePickerScreenState extends State<ImagePickerScreen> {
       
       if (pickedFile == null) return; // ผู้ใช้กดยกเลิก
 
-      //เรียกเครื่องมือครอบรูป
-      final CroppedFile? croppedFile = await ImageCropper().cropImage(
-        sourcePath: pickedFile.path, // đường dẫn của ảnh vừa chọn
-        aspectRatioPresets: [
-          CropAspectRatioPreset.square, // บังคับ 1:1
-          CropAspectRatioPreset.ratio3x2,
-          CropAspectRatioPreset.original,
-          CropAspectRatioPreset.ratio4x3,
-          CropAspectRatioPreset.ratio16x9
-        ],
-        uiSettings: [
-          AndroidUiSettings(
-              toolbarTitle: 'ครอบตัดรูปภาพ',
-              toolbarColor: const Color(0xFFFABB5A), // สีส้ม
-              toolbarWidgetColor: Colors.white,
-              initAspectRatio: CropAspectRatioPreset.square, // เริ่มที่ 1:1
-              lockAspectRatio: false), // อนุญาตให้ผู้ใช้เปลี่ยนอัตราส่วนได้
-          IOSUiSettings(
-            title: 'ครอบตัดรูปภาพ',
-            aspectRatioLockEnabled: false,
-          ),
-        ],
-      );
-
-      // เอารูปที่ครอบแล้วมาใช้งาน
-      if (croppedFile != null) {
-        setState(() {
-          _imageFile = File(croppedFile.path); // <-- บันทึกเป็น File
-        });
+      // อ่านไฟล์รูปภาพ
+      final File originalFile = File(pickedFile.path);
+      final img.Image? originalImage = img.decodeImage(await originalFile.readAsBytes());
+      
+      if (originalImage == null) {
+        throw Exception('ไม่สามารถอ่านรูปภาพได้');
       }
 
+      // ปรับขนาดเป็น 224x224 โดยรักษาสัดส่วน
+      final img.Image resizedImage = img.copyResize(
+        originalImage,
+        width: 224,
+        height: 224,
+        interpolation: img.Interpolation.linear
+      );
+
+      // บันทึกรูปที่ปรับขนาดแล้ว
+      final String tempPath = originalFile.path.replaceAll(
+        RegExp(r'\.[^.]*$'), 
+        '_resized.jpg'
+      );
+      final File resizedFile = File(tempPath);
+      await resizedFile.writeAsBytes(img.encodeJpg(resizedImage));
+
+      setState(() {
+        _imageFile = resizedFile; // บันทึกไฟล์ที่ปรับขนาดแล้ว
+      });
+
     } catch (e) {
-      print("Error picking/cropping image: $e");
+      print("Error resizing image: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('ไม่สามารถปรับขนาดรูปภาพได้: $e')),
+      );
     }
   }
 
@@ -88,10 +88,9 @@ class _ImagePickerScreenState extends State<ImagePickerScreen> {
     final xFileImage = XFile(_imageFile!.path);
 
     // รันโมเดล
-    String? foodName = await _tfliteService.runFoodRecognition(xFileImage);
-    double? estimatedWeight = await _tfliteService.runWeightEstimation(xFileImage);
+    RecognitionResult? result = await _tfliteService.runFoodRecognition(xFileImage);
 
-    if (foodName == null || estimatedWeight == null) {
+    if (result == null) {
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('ไม่สามารถประมวลผลรูปภาพได้')),
@@ -99,37 +98,17 @@ class _ImagePickerScreenState extends State<ImagePickerScreen> {
       return;
     }
 
-    // ค้นหาฐานข้อมูล 
-    NutrientInfo? baseNutrients = foodDatabase[foodName];
-
-    if (baseNutrients == null) {
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('ไม่พบข้อมูลโภชนาการสำหรับ: $foodName')),
-      );
-      return;
-    }
-
-    // --- 3. คำนวณ (เหมือนเดิม) ---
-    double weightRatio = estimatedWeight / 100.0;
-    CalculationResult result = CalculationResult(
-      imagePath: _imageFile!.path, // ส่ง path ของรูปที่ "ครอบแล้ว"
-      foodName: foodName,
-      estimatedWeight: estimatedWeight,
-      totalCalories: baseNutrients.calories * weightRatio,
-      totalProtein: baseNutrients.protein * weightRatio,
-      totalFat: baseNutrients.fat * weightRatio,
-      totalCarbs: baseNutrients.carbs * weightRatio,
-    );
-
     setState(() => _isLoading = false);
 
-    // --- 4. ส่งไปหน้าผลลัพธ์ (เหมือนเดิม) ---
+    // --- 4. ส่งไปหน้าผลลัพธ์ ---
     if (mounted) {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => ResultsScreen(result: result),
+          builder: (context) => ResultsScreen(
+            imageFile: xFileImage,
+            result: result,
+          ),
         ),
       );
     }
@@ -170,11 +149,14 @@ class _ImagePickerScreenState extends State<ImagePickerScreen> {
                 child: Center(
                   child: Padding(
                     padding: const EdgeInsets.all(20.0),
-                    child: AspectRatio(
-                      aspectRatio: 1 / 1,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: _buildImagePreview(), // (แก้ไขแล้ว)
+                    child: Container(
+                      constraints: const BoxConstraints(maxWidth: 224, maxHeight: 224),
+                      child: AspectRatio(
+                        aspectRatio: 1,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: _buildImagePreview(),
+                        ),
                       ),
                     ),
                   ),

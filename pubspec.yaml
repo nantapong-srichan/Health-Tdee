@@ -36,13 +36,11 @@ dependencies:
   #pick from gallery
   image_picker: ^1.1.2 
   #crop this shit
-  image_cropper: ^5.0.1
+  image_cropper: ^11.0.0
   image: ^4.1.7
 
   #yolo, cnn
   tflite_flutter: ^0.10.4
-  # tflite_flutter_helper: ^0.4.1
-  tflite_flutter_processing: ^0.4.1
 
   #thai fonts
   google_fonts: ^6.2.1 
@@ -75,6 +73,8 @@ flutter:
   assets:
     - assets/
     - assets/ml/
+    - assets/ml/best_float16.tflite
+    - assets/ml/labels.txt
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

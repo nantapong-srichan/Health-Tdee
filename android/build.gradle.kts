@@ -1,3 +1,4 @@
+// This is the full code for: android/build.gradle.kts
 allprojects {
     repositories {
         google()
@@ -15,9 +16,14 @@ subprojects {
     val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
     project.layout.buildDirectory.value(newSubprojectBuildDir)
 }
+
 subprojects {
     project.evaluationDependsOn(":app")
+    // Make sure the flutter.gradle line is NOT here
 }
+
+
+
 
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)

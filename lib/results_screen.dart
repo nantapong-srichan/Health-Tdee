@@ -2,35 +2,28 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
-// (โมเดลข้อมูลสำหรับส่งค่ามาหน้านี้)
-class CalculationResult {
-  final String imagePath;
-  final String foodName;
-  final double estimatedWeight;
-  final double totalCalories;
-  final double totalProtein;
-  final double totalFat;
-  final double totalCarbs;
-
-  CalculationResult({
-    required this.imagePath,
-    required this.foodName,
-    required this.estimatedWeight,
-    required this.totalCalories,
-    required this.totalProtein,
-    required this.totalFat,
-    required this.totalCarbs,
-  });
-}
+import 'package:image_picker/image_picker.dart';
+import 'nutrition_database.dart';
+import 'recognition_result.dart';
 
 class ResultsScreen extends StatelessWidget {
-  final CalculationResult result;
+  final XFile imageFile;
+  final RecognitionResult result;
   
-  const ResultsScreen({super.key, required this.result});
+  const ResultsScreen({
+    super.key, 
+    required this.imageFile,
+    required this.result,
+  });
 
   @override
   Widget build(BuildContext context) {
+    // คำนวณข้อมูลสารอาหาร
+    final nutritionCalc = NutritionDatabase.calculateNutrition(
+      result.foodName,
+      result.estimatedWeight,
+    );
+
     return Scaffold(
       backgroundColor: const Color(0xFFFDEFE0), // สีครีมพื้นหลัง
       appBar: AppBar(
@@ -50,7 +43,7 @@ class ResultsScreen extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(16),
               child: Image.file(
-                File(result.imagePath),
+                File(imageFile.path),
                 height: 300,
                 width: double.infinity,
                 fit: BoxFit.cover,
@@ -58,7 +51,7 @@ class ResultsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             
-            // 2. ชื่ออาหาร
+            // 2. ชื่ออาหารและความมั่นใจ
             Text(
               result.foodName,
               textAlign: TextAlign.center,
@@ -68,7 +61,15 @@ class ResultsScreen extends StatelessWidget {
               ),
             ),
             Text(
-              'ประมาณ ${result.estimatedWeight.toStringAsFixed(0)} กรัม',
+              'ความมั่นใจ: ${(result.confidence * 100).toStringAsFixed(1)}%',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.kanit(
+                fontSize: 16,
+                color: Colors.grey[600],
+              ),
+            ),
+            Text(
+              'น้ำหนักโดยประมาณ: ${result.estimatedWeight.toStringAsFixed(0)} กรัม',
               textAlign: TextAlign.center,
               style: GoogleFonts.kanit(
                 fontSize: 18,
@@ -78,7 +79,10 @@ class ResultsScreen extends StatelessWidget {
             const SizedBox(height: 24),
 
             // 3. การ์ดแคลอรี่
-            _buildCaloriesCard(result.totalCalories),
+            if (nutritionCalc != null) 
+              _buildCaloriesCard(nutritionCalc.calories)
+            else
+              _buildCaloriesCard(0),
             
             const SizedBox(height: 24),
 
@@ -91,9 +95,15 @@ class ResultsScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            _buildNutrientRow('โปรตีน', result.totalProtein, Colors.green),
-            _buildNutrientRow('ไขมัน', result.totalFat, Colors.orange),
-            _buildNutrientRow('คาร์โบไฮเดรต', result.totalCarbs, Colors.blue),
+            if (nutritionCalc != null) ...[
+              _buildNutrientRow('โปรตีน', nutritionCalc.protein, Colors.green),
+              _buildNutrientRow('ไขมัน', nutritionCalc.fat, Colors.orange),
+              _buildNutrientRow('คาร์โบไฮเดรต', nutritionCalc.carbs, Colors.blue),
+            ] else ...[
+              _buildNutrientRow('โปรตีน', 0, Colors.green),
+              _buildNutrientRow('ไขมัน', 0, Colors.orange),
+              _buildNutrientRow('คาร์โบไฮเดรต', 0, Colors.blue),
+            ],
             
             const SizedBox(height: 40),
 
