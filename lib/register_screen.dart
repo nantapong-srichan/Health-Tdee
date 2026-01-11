@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import 'services/auth_service.dart';
+import 'session_data.dart';
 import 'home_screen.dart';
 import 'login_screen.dart';
 
@@ -20,6 +22,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _dobController = TextEditingController();
+  final _ageController = TextEditingController();
   final _weightController = TextEditingController();
   final _heightController = TextEditingController();
   final _authService = AuthService();
@@ -30,7 +33,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscureConfirmPassword = true;
   String? _errorMessage;
   bool _agreedToTerms = false;
-  String _selectedActivityLevel = 'moderate';
+  String? _selectedGender; // ชาย / หญิง
+  String _selectedExerciseFrequency = 'daily'; // ความถี่การออกกำลังกาย
+  String _selectedGoal = 'weight_loss'; // เป้าหมายการใช้แอป
   
   // Disease checkboxes
   Map<String, bool> _diseases = {
@@ -45,6 +50,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _dobController.dispose();
+    _ageController.dispose();
     _weightController.dispose();
     _heightController.dispose();
     super.dispose();
@@ -68,6 +74,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _passwordController.text.isEmpty ||
         _confirmPasswordController.text.isEmpty ||
         _dobController.text.isEmpty ||
+        _ageController.text.isEmpty ||
+        _selectedGender == null ||
         _weightController.text.isEmpty ||
         _heightController.text.isEmpty) {
       setState(() {
@@ -104,6 +112,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
+    // Validate date format dd/mm/yyyy
+    if (!RegExp(r'^\d{2}/\d{2}/\d{4}$').hasMatch(_dobController.text)) {
+      setState(() {
+        _errorMessage = 'วันเกิดต้องเป็นรูปแบบ dd/mm/yyyy เท่านั้น';
+      });
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -125,9 +141,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text,
         name: _nameController.text.trim(),
+        dateOfBirth: _dobController.text,
         weight: weight,
         height: height,
-        activityLevel: _selectedActivityLevel,
+        activityLevel: _selectedExerciseFrequency,
+        gender: _selectedGender,
+        goal: _selectedGoal,
         dailyCalorieGoal: 2000,
       );
 
@@ -139,6 +158,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
         );
 
         if (loginResult['success'] && mounted) {
+          // Update SessionData with user information
+          final sessionData = Provider.of<SessionData>(context, listen: false);
+          sessionData.updateUserName(_nameController.text.trim());
+          sessionData.updateDateOfBirth(_dobController.text);
+          sessionData.updateHeight(_heightController.text);
+          sessionData.updateWeight(_weightController.text);
+          sessionData.updateGoal(_selectedGoal);
+          sessionData.updateGender(_selectedGender);
+          sessionData.updateExerciseStyle(_selectedExerciseFrequency);
+          if (_selectedImage != null) {
+            sessionData.updateProfileImagePath(_selectedImage!.path);
+          }
+          
           // Show success message
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -328,11 +360,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   });
                 },
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
 
-              // Health Information Section
+              // Date of Birth Field
+              _buildLabel('วันเกิด'),
+              _buildTextField(
+                controller: _dobController,
+                hintText: 'dd/mm/yyyy (เช่น 05/07/2003)',
+                keyboardType: TextInputType.datetime,
+                icon: Icons.calendar_today_outlined,
+              ),
+              const SizedBox(height: 16),
+
+              // Age Field
+              _buildLabel('อายุ'),
+              _buildTextField(
+                controller: _ageController,
+                hintText: 'อายุ (เช่น 21)',
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 24),
+
+              // Body Information Section
               Text(
-                'ข้อมูลสุขภาพ',
+                'ข้อมูลร่างกาย',
                 style: GoogleFonts.kanit(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -341,9 +392,104 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Age, Weight, Height Row
+              // Gender Selection
+              _buildLabel('เพศ'),
               Row(
                 children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: _isLoading
+                          ? null
+                          : () {
+                              setState(() {
+                                _selectedGender = 'male';
+                              });
+                            },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: _selectedGender == 'male'
+                              ? const Color(0xFFFABB5A)
+                              : Colors.white,
+                          border: Border.all(
+                            color: _selectedGender == 'male'
+                                ? const Color(0xFFFABB5A)
+                                : Colors.grey[300]!,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          'ชาย',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.kanit(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: _selectedGender == 'male'
+                                ? Colors.white
+                                : Colors.black87,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: _isLoading
+                          ? null
+                          : () {
+                              setState(() {
+                                _selectedGender = 'female';
+                              });
+                            },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: _selectedGender == 'female'
+                              ? const Color(0xFFFABB5A)
+                              : Colors.white,
+                          border: Border.all(
+                            color: _selectedGender == 'female'
+                                ? const Color(0xFFFABB5A)
+                                : Colors.grey[300]!,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          'หญิง',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.kanit(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: _selectedGender == 'female'
+                                ? Colors.white
+                                : Colors.black87,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Height and Weight Row
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('ส่วนสูง (ซม)'),
+                        _buildTextField(
+                          controller: _heightController,
+                          hintText: 'ความสูง',
+                          keyboardType: TextInputType.number,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -357,26 +503,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildLabel('ความสูง (ซม)'),
-                        _buildTextField(
-                          controller: _heightController,
-                          hintText: 'ความสูง',
-                          keyboardType: TextInputType.number,
-                        ),
-                      ],
-                    ),
-                  ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
 
-              // Activity Level
-              _buildLabel('ระดับกิจกรรม'),
+              // Exercise Frequency Section
+              Text(
+                'รูปแบบการออกกำลังกาย',
+                style: GoogleFonts.kanit(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ..._buildExerciseFrequencyOptions(),
+              const SizedBox(height: 24),
+
+              // Goal Section
+              _buildLabel('เป้าหมายการใช้แอป'),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
@@ -385,32 +530,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: DropdownButton<String>(
-                  value: _selectedActivityLevel,
+                  value: _selectedGoal,
                   isExpanded: true,
                   underline: const SizedBox.shrink(),
                   items: [
                     DropdownMenuItem(
-                      value: 'sedentary',
-                      child: Text('นั่งส่วนใหญ่', style: GoogleFonts.kanit()),
+                      value: 'weight_loss',
+                      child: Text('ลดน้ำหนัก', style: GoogleFonts.kanit()),
                     ),
                     DropdownMenuItem(
-                      value: 'light',
-                      child: Text('กิจกรรมเบา', style: GoogleFonts.kanit()),
+                      value: 'weight_gain',
+                      child: Text('เพิ่มน้ำหนัก', style: GoogleFonts.kanit()),
                     ),
                     DropdownMenuItem(
-                      value: 'moderate',
-                      child: Text('กิจกรรมปกติ', style: GoogleFonts.kanit()),
+                      value: 'maintain',
+                      child: Text('รักษาน้ำหนัก', style: GoogleFonts.kanit()),
                     ),
                     DropdownMenuItem(
-                      value: 'active',
-                      child: Text('กิจกรรมหนัก', style: GoogleFonts.kanit()),
+                      value: 'muscle_gain',
+                      child: Text('เพิ่มกล้ามเนื้อ', style: GoogleFonts.kanit()),
                     ),
                   ],
                   onChanged: _isLoading
                       ? null
                       : (value) {
                           setState(() {
-                            _selectedActivityLevel = value ?? 'moderate';
+                            _selectedGoal = value ?? 'weight_loss';
                           });
                         },
                 ),
@@ -428,7 +573,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 12),
               ..._buildDiseaseCheckboxes(),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
 
               // Terms Checkbox
               Row(
@@ -668,5 +813,86 @@ class _RegisterScreenState extends State<RegisterScreen> {
       controlAffinity: ListTileControlAffinity.leading,
       contentPadding: EdgeInsets.zero,
     );
+  }
+
+  List<Widget> _buildExerciseFrequencyOptions() {
+    final options = [
+      {'value': 'daily', 'label': 'ออกกำลังกายทุกวัน'},
+      {'value': '6-7', 'label': 'ออกกำลังกาย 6-7 ครั้งต่อสัปดาห์'},
+      {'value': '3-5', 'label': 'ออกกำลังกาย 3-5 ครั้งต่อสัปดาห์'},
+      {'value': '1-2', 'label': 'ออกกำลังกาย 1-2 ครั้งต่อสัปดาห์'},
+    ];
+
+    return options.map((option) {
+      final value = option['value'] as String;
+      final label = option['label'] as String;
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: GestureDetector(
+          onTap: _isLoading
+              ? null
+              : () {
+                  setState(() {
+                    _selectedExerciseFrequency = value;
+                  });
+                },
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+            decoration: BoxDecoration(
+              color: _selectedExerciseFrequency == value
+                  ? const Color(0xFFFABB5A).withOpacity(0.1)
+                  : Colors.white,
+              border: Border.all(
+                color: _selectedExerciseFrequency == value
+                    ? const Color(0xFFFABB5A)
+                    : Colors.grey[300]!,
+                width: _selectedExerciseFrequency == value ? 2 : 1,
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: _selectedExerciseFrequency == value
+                          ? const Color(0xFFFABB5A)
+                          : Colors.grey[300]!,
+                      width: 2,
+                    ),
+                  ),
+                  child: _selectedExerciseFrequency == value
+                      ? Center(
+                          child: Container(
+                            width: 12,
+                            height: 12,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Color(0xFFFABB5A),
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: GoogleFonts.kanit(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }).toList();
   }
 }

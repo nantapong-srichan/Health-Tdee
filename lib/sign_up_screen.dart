@@ -17,6 +17,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _dobController = TextEditingController();
   final _authService = AuthService();
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -30,6 +31,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _dobController.dispose();
     super.dispose();
   }
 
@@ -38,7 +40,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
     if (_nameController.text.isEmpty ||
         _emailController.text.isEmpty ||
         _passwordController.text.isEmpty ||
-        _confirmPasswordController.text.isEmpty) {
+        _confirmPasswordController.text.isEmpty ||
+        _dobController.text.isEmpty) {
       setState(() {
         _errorMessage = 'กรุณากรอกข้อมูลให้ครบถ้วน';
       });
@@ -73,6 +76,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
       return;
     }
 
+    // Validate date format dd/mm/yyyy
+    if (!RegExp(r'^\d{2}/\d{2}/\d{4}$').hasMatch(_dobController.text)) {
+      setState(() {
+        _errorMessage = 'วันเกิดต้องเป็นรูปแบบ dd/mm/yyyy เท่านั้น';
+      });
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -84,7 +95,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text,
         name: _nameController.text.trim(),
-        age: 25,
+        dateOfBirth: _dobController.text,
         weight: 70.0,
         height: 170.0,
         activityLevel: 'moderate',
@@ -368,6 +379,49 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       });
                     },
                   ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
+                ),
+                style: GoogleFonts.kanit(),
+              ),
+              const SizedBox(height: 20),
+
+              // Date of Birth Field
+              Text(
+                'วันเกิด',
+                style: GoogleFonts.kanit(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _dobController,
+                enabled: !_isLoading,
+                decoration: InputDecoration(
+                  hintText: 'dd/mm/yyyy (เช่น 05/07/2003)',
+                  hintStyle: GoogleFonts.kanit(color: Colors.grey[400]),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: Color(0xFFFABB5A),
+                      width: 2,
+                    ),
+                  ),
+                  prefixIcon: const Icon(Icons.calendar_today_outlined, color: Color(0xFFFABB5A)),
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 16,

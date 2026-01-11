@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 
 class SessionData with ChangeNotifier {
   
+  // ข้อมูลผู้ใช้
+  String? userName;
+  String? profileImagePath;
+  
   //ข้อมูลจากช่องกรอกข้อความ
   String? dateOfBirth;
   String? gender; // < รับค่า null ได้
@@ -18,6 +22,17 @@ class SessionData with ChangeNotifier {
   DateTime? selectedDate; // วันที่ที่เลือกสำหรับแสดงผล
 
   // ฟังก์ชันอัปเดตข้อมูล Text
+  // ฟังก์ชันอัปเดตข้อมูลผู้ใช้
+  void updateUserName(String name) {
+    userName = name;
+    notifyListeners();
+  }
+
+  void updateProfileImagePath(String path) {
+    profileImagePath = path;
+    notifyListeners();
+  }
+
   void updateDateOfBirth(String dob) {
     dateOfBirth = dob;
     notifyListeners();
@@ -204,5 +219,37 @@ class SessionData with ChangeNotifier {
       total += (meal['fat'] ?? 0) as double;
     }
     return total;
+  }
+
+  // Get daily calorie goal based on selected goal
+  double getDailyCalorieGoal() {
+    switch (goal) {
+      case 'weight_loss':
+        return 1800.0; // For weight loss
+      case 'weight_gain':
+        return 2500.0; // For weight gain
+      case 'maintain':
+        return 2000.0; // For maintaining weight
+      case 'muscle_gain':
+        return 2300.0; // For muscle gain
+      default:
+        return 2000.0; // Default
+    }
+  }
+
+  // Get goal label in Thai
+  String getGoalLabel() {
+    switch (goal) {
+      case 'weight_loss':
+        return 'ลดน้ำหนัก';
+      case 'weight_gain':
+        return 'เพิ่มน้ำหนัก';
+      case 'maintain':
+        return 'รักษาน้ำหนัก';
+      case 'muscle_gain':
+        return 'เพิ่มกล้ามเนื้อ';
+      default:
+        return 'ไม่ได้กำหนด';
+    }
   }
 }

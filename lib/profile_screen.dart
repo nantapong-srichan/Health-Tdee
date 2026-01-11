@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'session_data.dart';
+import 'get_started_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -275,6 +276,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: ElevatedButton(
                       onPressed: dobError == null && dobController.text.isNotEmpty ? () {
                         sessionData.updateDateOfBirth(dobController.text);
+                        nameController.dispose();
+                        lastNameController.dispose();
+                        dobController.dispose();
                         Navigator.pop(context);
                       } : null,
                       style: ElevatedButton.styleFrom(
@@ -301,9 +305,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
       },
     );
-    nameController.dispose();
-    lastNameController.dispose();
-    dobController.dispose();
   }
 
   void _editEmail(BuildContext context, TextTheme theme) {
@@ -547,8 +548,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context);
-              Navigator.pop(context); // Back to Home
+              // Clear session data
+              final sessionData = context.read<SessionData>();
+              sessionData.clearData();
+              sessionData.userName = null;
+              sessionData.profileImagePath = null;
+              sessionData.clearMeals();
+              
+              // Navigate to Get Started Screen
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => const GetStartedScreen()),
+                (route) => false,
+              );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,

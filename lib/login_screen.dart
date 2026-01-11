@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/gestures.dart';
 import 'services/auth_service.dart';
 import 'home_screen.dart';
-import 'sign_up_screen.dart';
+import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -291,7 +291,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ..onTap = () {
                                 Navigator.of(context).pushReplacement(
                                   MaterialPageRoute(
-                                    builder: (context) => const SignUpScreen(),
+                                    builder: (context) => const RegisterScreen(),
                                   ),
                                 );
                               }),

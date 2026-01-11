@@ -171,7 +171,7 @@ class ResultsScreen extends StatelessWidget {
                       final sessionData = Provider.of<SessionData>(context, listen: false);
                       sessionData.addMeal({
                         'name': result.foodName,
-                        'imagePath': 'assets/food1.png',
+                        'imagePath': imageFile.path,  // ใช้รูปจริงจากการถ่ายรูป
                         'calories': nutritionCalc?.calories ?? 0.0,
                         'protein': nutritionCalc?.protein ?? 0.0,
                         'carbs': nutritionCalc?.carbs ?? 0.0,
@@ -188,7 +188,8 @@ class ResultsScreen extends StatelessWidget {
                         ),
                       );
                       
-                      // Navigate back to home
+                      // Navigate back to home screen (just pop back 2 screens: ResultsScreen -> ImagePickerScreen -> HomeScreen)
+                      Navigator.of(context).pop();
                       Navigator.of(context).pop();
                     },
                     style: ElevatedButton.styleFrom(

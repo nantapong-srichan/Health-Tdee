@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:percent_indicator/percent_indicator.dart';
@@ -95,27 +96,33 @@ class _HomeScreenState extends State<HomeScreen> {
   //Helper Widgets
 
   Widget _buildHeader(TextTheme theme) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return Consumer<SessionData>(
+      builder: (context, sessionData, _) {
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('ยินดีต้อนรับ', style: theme.bodyLarge?.copyWith(fontSize: 22)),
-            Text(
-              'Nantapong',
-              style: theme.headlineLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                fontSize: 34,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('ยินดีต้อนรับ', style: theme.bodyLarge?.copyWith(fontSize: 22)),
+                Text(
+                  sessionData.userName ?? 'ผู้ใช้',
+                  style: theme.headlineLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 34,
+                  ),
+                ),
+              ],
+            ),
+            CircleAvatar(
+              radius: 35,
+              backgroundImage: sessionData.profileImagePath != null
+                  ? FileImage(File(sessionData.profileImagePath!))
+                  : const AssetImage('assets/profile_pic.png') as ImageProvider,
             ),
           ],
-        ),
-        const CircleAvatar(
-          radius: 35,
-          backgroundImage: AssetImage('assets/profile_pic.png'), // Your profile image
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -124,7 +131,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return Consumer<SessionData>(
       builder: (context, sessionData, _) {
         final todayCalories = sessionData.getTodayCalories();
-        final goalCalories = int.tryParse(goal ?? '2000') ?? 2000;
+        final goalCalories = sessionData.getDailyCalorieGoal();
+        final goalLabel = sessionData.getGoalLabel();
         
         return Container(
           padding: const EdgeInsets.all(20),
@@ -144,7 +152,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     lineWidth: 12.0,
                     percent: (todayCalories / goalCalories).clamp(0.0, 1.0),
                     center: Text(
-                      "${todayCalories.toStringAsFixed(0)}/$goalCalories\nแคลอรี่",
+                      "${todayCalories.toStringAsFixed(0)}/${goalCalories.toStringAsFixed(0)}\nแคลอรี่",
                       textAlign: TextAlign.center,
                       style: theme.bodySmall,
                     ),
@@ -159,7 +167,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          goal, // แสดง goal ที่ผู้ใช้เลือก
+                          goalLabel, // แสดง goal label ในภาษาไทย
                           style: theme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         Text(
