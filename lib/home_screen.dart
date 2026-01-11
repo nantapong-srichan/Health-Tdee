@@ -3,10 +3,18 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 import 'package:provider/provider.dart'; 
 import 'session_data.dart'; 
-import 'image_picker_screen.dart'; 
+import 'image_picker_screen.dart';
+import 'profile_screen.dart'; 
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  int _selectedTabIndex = 0; // 0: daily, 1: 7days, 2: 30days
 
   @override
   Widget build(BuildContext context) {
@@ -30,15 +38,14 @@ class HomeScreen extends StatelessWidget {
                 // ใช้ข้อมูล goal จาก sessionData มาแสดงผล
                 _buildTodayCaloriesCard(kanitTheme, sessionData.goal ?? '...'),
                 const SizedBox(height: 24),
-                _buildDateSelector(kanitTheme),
+                _buildDateSelector(kanitTheme, sessionData),
                 const SizedBox(height: 24),
-                _buildDailyMealsCard(kanitTheme),
+                _buildDailyMealsCard(kanitTheme, sessionData),
               ],
             ),
           ),
         ),
       ),
-      // Custom Bottom Navigation Bar
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           // --- (แก้ไข) แก้ไขให้ไปหน้า ImagePickerScreen ---
@@ -69,7 +76,14 @@ class HomeScreen extends StatelessWidget {
               ),
               IconButton(
                 icon: Icon(Icons.person_outline, color: Colors.grey[400], size: 30),
-                onPressed: () {},
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ProfileScreen(),
+                    ),
+                  );
+                },
               ),
             ],
           ),
@@ -107,121 +121,160 @@ class HomeScreen extends StatelessWidget {
 
   // รับ goal มาแสดง
   Widget _buildTodayCaloriesCard(TextTheme theme, String goal) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('แคลอรี่วันนี้', style: theme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          Row(
+    return Consumer<SessionData>(
+      builder: (context, sessionData, _) {
+        final todayCalories = sessionData.getTodayCalories();
+        final goalCalories = int.tryParse(goal ?? '2000') ?? 2000;
+        
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircularPercentIndicator(
-                radius: 50.0,
-                lineWidth: 12.0,
-                percent: 1063 / 2000,
-                center: Text(
-                  "1063/2000\nแคลอรี่",
-                  textAlign: TextAlign.center,
-                  style: theme.bodySmall,
-                ),
-                progressColor: const Color(0xFFFABB5A),
-                backgroundColor: const Color(0xFFFDEFE0),
-                circularStrokeCap: CircularStrokeCap.round,
-                startAngle: 180,
+              Text('แคลอรี่วันนี้', style: theme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  CircularPercentIndicator(
+                    radius: 50.0,
+                    lineWidth: 12.0,
+                    percent: (todayCalories / goalCalories).clamp(0.0, 1.0),
+                    center: Text(
+                      "${todayCalories.toStringAsFixed(0)}/$goalCalories\nแคลอรี่",
+                      textAlign: TextAlign.center,
+                      style: theme.bodySmall,
+                    ),
+                    progressColor: const Color(0xFFFABB5A),
+                    backgroundColor: const Color(0xFFFDEFE0),
+                    circularStrokeCap: CircularStrokeCap.round,
+                    startAngle: 180,
+                  ),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          goal, // แสดง goal ที่ผู้ใช้เลือก
+                          style: theme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          todayCalories < goalCalories ? 'อีกนิดเดียว!' : 'เกินแล้ว',
+                          style: theme.bodyMedium?.copyWith(color: Colors.grey[600]),
+                        ),
+                      ],
+                    ),
+                  )
+                ],
               ),
-              const SizedBox(width: 20),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      goal, // แสดง goal ที่ผู้ใช้เลือก
-                      style: theme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDateSelector(TextTheme theme, SessionData sessionData) {
+    return StatefulBuilder(
+      builder: (context, setState) {
+        final today = DateTime.now();
+        final datesList = <DateTime>[];
+        
+        // สร้างลิสต์วันที่สำหรับ "รายวัน"
+        for (int i = 6; i >= 0; i--) {
+          datesList.add(today.subtract(Duration(days: i)));
+        }
+        
+        int selectedIndex = 6; // เลือกวันนี้เป็นค่าเริ่มต้น
+        
+        return DefaultTabController(
+          length: 3,
+          initialIndex: _selectedTabIndex,
+          child: Column(
+            children: [
+              TabBar(
+                labelColor: Colors.black,
+                unselectedLabelColor: Colors.grey,
+                indicatorColor: const Color(0xFFFABB5A),
+                indicatorWeight: 3,
+                labelStyle: theme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                onTap: (index) {
+                  setState(() {
+                    _selectedTabIndex = index;
+                  });
+                },
+                tabs: const [
+                  Tab(text: 'รายวัน'),
+                  Tab(text: '7 วันย้อนหลัง'),
+                  Tab(text: '30 วันย้อนหลัง'),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // รายวัน - calendar date picker
+              if (_selectedTabIndex == 0)
+                SizedBox(
+                  height: 70,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: datesList.length,
+                    itemBuilder: (context, index) {
+                      final date = datesList[index];
+                      bool isSelected = index == selectedIndex;
+                      final dayName = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
+                      
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            selectedIndex = index;
+                            sessionData.selectDate(date);
+                          });
+                        },
+                        child: Container(
+                          width: 50,
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          decoration: BoxDecoration(
+                            color: isSelected ? const Color(0xFFFABB5A) : Colors.white,
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(date.day.toString(),
+                                  style: theme.bodyLarge?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: isSelected ? Colors.white : Colors.black)),
+                              Text(dayName[date.weekday % 7],
+                                  style: theme.bodySmall?.copyWith(
+                                      color: isSelected ? Colors.white70 : Colors.grey)),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                )
+              else
+                SizedBox(
+                  height: 70,
+                  child: Center(
+                    child: Text(
+                      _selectedTabIndex == 1 ? '7 วันย้อนหลัง' : '30 วันย้อนหลัง',
+                      style: theme.bodyMedium?.copyWith(color: Colors.grey),
                     ),
-                    Text(
-                      'อีกนิดเดียว!',
-                      style: theme.bodyMedium?.copyWith(color: Colors.grey[600]),
-                    ),
-                  ],
+                  ),
                 ),
-              )
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildDateSelector(TextTheme theme) {
-    final List<Map<String, String>> dates = [
-      {'day': '17', 'weekday': 'อา.'},
-      {'day': '18', 'weekday': 'จ.'},
-      {'day': '19', 'weekday': 'อ.'},
-      {'day': '20', 'weekday': 'พ.'},
-      {'day': '21', 'weekday': 'พฤ.'},
-      {'day': '22', 'weekday': 'ศ.'},
-      {'day': '23', 'weekday': 'ส.'},
-    ];
-    int selectedIndex = 1; // '18' is selected
-
-    return DefaultTabController(
-      length: 3,
-      child: Column(
-        children: [
-          TabBar(
-            labelColor: Colors.black,
-            unselectedLabelColor: Colors.grey,
-            indicatorColor: const Color(0xFFFABB5A),
-            indicatorWeight: 3,
-            labelStyle: theme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
-            tabs: const [
-              Tab(text: 'รายวัน'),
-              Tab(text: '7 วันย้อนหลัง'),
-              Tab(text: '30 วันย้อนหลัง'),
-            ],
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 70,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: dates.length,
-              itemBuilder: (context, index) {
-                bool isSelected = index == selectedIndex;
-                return Container(
-                  width: 50,
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFFFABB5A) : Colors.white,
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(dates[index]['day']!,
-                          style: theme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: isSelected ? Colors.white : Colors.black)),
-                      Text(dates[index]['weekday']!,
-                          style: theme.bodySmall?.copyWith(
-                              color: isSelected ? Colors.white70 : Colors.grey)),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDailyMealsCard(TextTheme theme) {
+  Widget _buildDailyMealsCard(TextTheme theme, SessionData sessionData) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -235,31 +288,81 @@ class HomeScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('แคลอรี่ต่อวัน', style: theme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-              Text('1063/1801 kcal', style: theme.bodyMedium?.copyWith(color: Colors.grey)),
+              Consumer<SessionData>(
+                builder: (context, data, _) {
+                  final selectedDate = data.selectedDate ?? DateTime.now();
+                  final caloriesForDate = data.getCaloriesForDate(selectedDate);
+                  final goal = int.tryParse(data.goal ?? '2000') ?? 2000;
+                  return Text(
+                    '${caloriesForDate.toStringAsFixed(0)}/$goal kcal',
+                    style: theme.bodyMedium?.copyWith(color: Colors.grey),
+                  );
+                },
+              ),
             ],
           ),
           const SizedBox(height: 20),
-          Center(
-            child: CircularPercentIndicator(
-              radius: 65.0,
-              lineWidth: 18.0,
-              percent: 1063 / 1801,
-              center: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text("1063 kCal", style: theme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-                  Text("เหลือ 738", style: theme.bodySmall?.copyWith(color: Colors.grey)),
-                ],
-              ),
-              progressColor: const Color(0xFFFABB5A),
-              backgroundColor: Colors.grey[200]!,
-              circularStrokeCap: CircularStrokeCap.round,
-            ),
+          Consumer<SessionData>(
+            builder: (context, data, _) {
+              final selectedDate = data.selectedDate ?? DateTime.now();
+              final caloriesForDate = data.getCaloriesForDate(selectedDate);
+              final goal = int.tryParse(data.goal ?? '2000') ?? 2000;
+              final percent = (caloriesForDate / goal).clamp(0.0, 1.0);
+              
+              return Center(
+                child: CircularPercentIndicator(
+                  radius: 65.0,
+                  lineWidth: 18.0,
+                  percent: percent,
+                  center: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text("${caloriesForDate.toStringAsFixed(0)} kCal", style: theme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                      Text("เหลือ ${(goal - caloriesForDate).toStringAsFixed(0)}", style: theme.bodySmall?.copyWith(color: Colors.grey)),
+                    ],
+                  ),
+                  progressColor: const Color(0xFFFABB5A),
+                  backgroundColor: Colors.grey[200]!,
+                  circularStrokeCap: CircularStrokeCap.round,
+                ),
+              );
+            },
           ),
           const SizedBox(height: 20),
           const Divider(),
-          _buildFoodItem(theme, 'assets/food1.png', 'แกงจืดเต้าหู้หมูสับ', '180 kCal'),
-          _buildFoodItem(theme, 'assets/food2.png', 'คะน้าหมูกรอบ', '883 kCal'),
+          Consumer<SessionData>(
+            builder: (context, data, _) {
+              final selectedDate = data.selectedDate ?? DateTime.now();
+              final mealsForDate = data.getMealsForDate(selectedDate);
+              
+              if (mealsForDate.isEmpty) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 20.0),
+                    child: Text(
+                      'ยังไม่มีอาหารที่บันทึก',
+                      style: theme.bodyMedium?.copyWith(color: Colors.grey),
+                    ),
+                  ),
+                );
+              }
+              
+              return ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: mealsForDate.length,
+                itemBuilder: (context, index) {
+                  final meal = mealsForDate[index];
+                  return _buildFoodItem(
+                    theme,
+                    meal['imagePath'] ?? 'assets/food1.png',
+                    meal['name'] ?? 'ไม่ระบุชื่อ',
+                    '${(meal['calories'] ?? 0).toStringAsFixed(0)} kCal',
+                  );
+                },
+              );
+            },
+          ),
         ],
       ),
     );

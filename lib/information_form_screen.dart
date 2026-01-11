@@ -15,7 +15,6 @@ class InformationFormScreen extends StatefulWidget {
 class _InformationFormScreenState extends State<InformationFormScreen> {
   // Controllers 
   late TextEditingController _dobController;
-  late TextEditingController _ageController;
   late TextEditingController _heightController;
   late TextEditingController _weightController;
 
@@ -35,7 +34,6 @@ class _InformationFormScreenState extends State<InformationFormScreen> {
     final sessionData = Provider.of<SessionData>(context, listen: false);
     
     _dobController = TextEditingController(text: sessionData.dateOfBirth);
-    _ageController = TextEditingController(text: sessionData.age);
     _heightController = TextEditingController(text: sessionData.height);
     _weightController = TextEditingController(text: sessionData.weight);
   }
@@ -43,7 +41,6 @@ class _InformationFormScreenState extends State<InformationFormScreen> {
   @override
   void dispose() {
     _dobController.dispose();
-    _ageController.dispose();
     _heightController.dispose();
     _weightController.dispose();
     super.dispose();
@@ -98,14 +95,8 @@ class _InformationFormScreenState extends State<InformationFormScreen> {
                           _buildSectionTitle('ข้อมูลส่วนตัว'),
                           _buildTextFieldInput(
                             controller: _dobController,
-                            hintText: 'วว/ดด/ปปปป (เช่น 05/07/2003)',
+                            hintText: 'dd/mm/yyyy (เช่น 05/07/2003)',
                             keyboardType: TextInputType.datetime,
-                          ),
-                          _buildTextFieldInput(
-                            controller: _ageController,
-                            hintText: 'อายุ (เช่น 21)',
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                           ),
 
                           // ข้อมูลร่างกาย (เพศ/สูง/หนัก) 
@@ -156,7 +147,6 @@ class _InformationFormScreenState extends State<InformationFormScreen> {
                               // validation 
                               
                               final dob = _dobController.text;
-                              final age = _ageController.text;
                               final height = _heightController.text;
                               final weight = _weightController.text;
                               
@@ -166,7 +156,7 @@ class _InformationFormScreenState extends State<InformationFormScreen> {
                               // final health = sessionData.healthInfo; // ไม่ต้องดึงมาเช็คแล้ว
 
                               // (ลบ || health == null ออกจากเงื่อนไข)
-                              if (dob.isEmpty || age.isEmpty || height.isEmpty || weight.isEmpty ||
+                              if (dob.isEmpty || height.isEmpty || weight.isEmpty ||
                                   gender == null || exercise == null || goal == null) {
                                   
                                   ScaffoldMessenger.of(context).showSnackBar(
@@ -183,9 +173,23 @@ class _InformationFormScreenState extends State<InformationFormScreen> {
                                   return;
                               }
                               
+                              // ตรวจสอบรูปแบบวันเกิด dd/mm/yyyy
+                              if (!RegExp(r'^\d{2}/\d{2}/\d{4}$').hasMatch(dob)) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'วันเกิดต้องเป็นรูปแบบ dd/mm/yyyy เท่านั้น',
+                                        style: GoogleFonts.kanit(fontSize: 16),
+                                      ),
+                                      backgroundColor: Colors.redAccent,
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
+                                  return;
+                              }
+                              
                               // ข้อมูลครบถ้วน (ให้ผ่าน)
                               sessionData.updateDateOfBirth(dob);
-                              sessionData.updateAge(age);
                               sessionData.updateHeight(height);
                               sessionData.updateWeight(weight);
                               

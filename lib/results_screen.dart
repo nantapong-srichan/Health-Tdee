@@ -3,8 +3,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
-import 'nutrition_database.dart';
+import 'package:provider/provider.dart';
+import 'meal_confirmation_screen.dart';
 import 'recognition_result.dart';
+import 'session_data.dart';
+import 'nutrition_database.dart';
 
 class ResultsScreen extends StatelessWidget {
   final XFile imageFile;
@@ -107,27 +110,105 @@ class ResultsScreen extends StatelessWidget {
             
             const SizedBox(height: 40),
 
-            // 5. ปุ่มยืนยัน
-            ElevatedButton(
-              onPressed: () {
-                // TODO: บันทึกข้อมูลนี้ลงใน Daily Log
-                Navigator.of(context).pop(); // กลับไปหน้า Home
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFABB5A),
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            // 5. ปุ่มยืนยัน และแก้ไข
+            Row(
+              children: [
+                // Edit Button
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      // Calculate nutrition values
+                      final nutritionCalc = NutritionDatabase.calculateNutrition(
+                        result.foodName,
+                        result.estimatedWeight,
+                      );
+                      
+                      // Navigate to meal confirmation screen with slider UI for editing
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => MealConfirmationScreen(
+                            foodName: result.foodName,
+                            imagePath: 'assets/food1.png', // Use appropriate asset or food name
+                            nutritionValues: {
+                              'calories': nutritionCalc?.calories ?? 0.0,
+                              'protein': nutritionCalc?.protein ?? 0.0,
+                              'carbs': nutritionCalc?.carbs ?? 0.0,
+                              'fat': nutritionCalc?.fat ?? 0.0,
+                            },
+                          ),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey[400],
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      'แก้ไข',
+                      style: GoogleFonts.kanit(
+                        fontSize: 19,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-              child: Text(
-                'ยืนยัน',
-                style: GoogleFonts.kanit(
-                  fontSize: 19,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                const SizedBox(width: 12),
+                // Confirm Button
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      // Calculate nutrition values and save directly
+                      final nutritionCalc = NutritionDatabase.calculateNutrition(
+                        result.foodName,
+                        result.estimatedWeight,
+                      );
+                      
+                      // Save meal directly to SessionData
+                      final sessionData = Provider.of<SessionData>(context, listen: false);
+                      sessionData.addMeal({
+                        'name': result.foodName,
+                        'imagePath': 'assets/food1.png',
+                        'calories': nutritionCalc?.calories ?? 0.0,
+                        'protein': nutritionCalc?.protein ?? 0.0,
+                        'carbs': nutritionCalc?.carbs ?? 0.0,
+                        'fat': nutritionCalc?.fat ?? 0.0,
+                        'timestamp': DateTime.now(),
+                      });
+                      
+                      // Show success notification
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('บันทึก${result.foodName}สำเร็จ'),
+                          backgroundColor: Colors.green,
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                      
+                      // Navigate back to home
+                      Navigator.of(context).pop();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFABB5A),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      'ยืนยัน',
+                      style: GoogleFonts.kanit(
+                        fontSize: 19,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ],
         ),

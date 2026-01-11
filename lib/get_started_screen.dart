@@ -1,7 +1,8 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'information_form_screen.dart'; 
+import 'register_screen.dart';
+import 'login_screen.dart';
 
 class GetStartedScreen extends StatelessWidget {
   const GetStartedScreen({super.key});
@@ -19,24 +20,35 @@ class GetStartedScreen extends StatelessWidget {
             children: [
               const Spacer(flex: 2),
               Text(
-                "Let's Get Started",
+                "เริ่มต้นกับเรา",
                 textAlign: TextAlign.center,
-                style: GoogleFonts.playfairDisplay(
+                style: GoogleFonts.kanit(
                   fontSize: 36,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF4A4462),
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFFFABB5A),
                 ),
               ),
-              const SizedBox(height: 30),
-              // ตรวจสอบว่ามีรูปนี้ใน assets
-              Image.asset('assets/food_layout.png', height: 350), 
-              const Spacer(flex: 3),
+              const SizedBox(height: 12),
+              Text(
+                "ติดตามสุขภาพและสารอาหารของคุณ",
+                textAlign: TextAlign.center,
+                style: GoogleFonts.kanit(
+                  fontSize: 16,
+                  color: Colors.grey[600],
+                ),
+              ),
+              const SizedBox(height: 40),
+              Icon(
+                Icons.restaurant_menu_rounded,
+                size: 120,
+                color: const Color(0xFFFABB5A).withOpacity(0.3),
+              ),
+              const Spacer(flex: 2),
               ElevatedButton(
                 onPressed: () {
-                  // signup button
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const InformationFormScreen()),
+                    MaterialPageRoute(builder: (context) => const RegisterScreen()),
                   );
                 },
                 style: ElevatedButton.styleFrom(
@@ -48,11 +60,11 @@ class GetStartedScreen extends StatelessWidget {
                   elevation: 0,
                 ),
                 child: Text(
-                  'Sign Up',
-                  style: GoogleFonts.inter(
+                  'สมัครสมาชิก',
+                  style: GoogleFonts.kanit(
                     fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
                   ),
                 ),
               ),
@@ -60,21 +72,20 @@ class GetStartedScreen extends StatelessWidget {
               RichText(
                 textAlign: TextAlign.center,
                 text: TextSpan(
-                  style: GoogleFonts.inter(fontSize: 14, color: Colors.black54),
+                  style: GoogleFonts.kanit(fontSize: 14, color: Colors.grey[600]),
                   children: [
-                    const TextSpan(text: 'Already have an account? '),
+                    const TextSpan(text: 'มีบัญชีอยู่แล้ว? '),
                     TextSpan(
-                      text: 'Continue', // แก้ไขตามคำขอ
-                      style: const TextStyle(
-                        color: Color(0xFFFABB5A),
+                      text: 'เข้าสู่ระบบ',
+                      style: GoogleFonts.kanit(
+                        color: const Color(0xFFFABB5A),
                         fontWeight: FontWeight.bold,
                       ),
                       recognizer: TapGestureRecognizer()
                         ..onTap = () {
-                          // ไปยังหน้ากรอกข้อมูล
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (context) => const InformationFormScreen()),
+                            MaterialPageRoute(builder: (context) => const LoginScreen()),
                           );
                         },
                     ),

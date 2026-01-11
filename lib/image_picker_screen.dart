@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:image/image.dart' as img;
+// import 'package:image/image.dart' as img; // (ไม่จำเป็นต้องใช้แล้ว)
 import 'tflite_service.dart';
 import 'results_screen.dart';
 import 'recognition_result.dart';
@@ -42,38 +42,17 @@ class _ImagePickerScreenState extends State<ImagePickerScreen> {
       
       if (pickedFile == null) return; // ผู้ใช้กดยกเลิก
 
-      // อ่านไฟล์รูปภาพ
-      final File originalFile = File(pickedFile.path);
-      final img.Image? originalImage = img.decodeImage(await originalFile.readAsBytes());
-      
-      if (originalImage == null) {
-        throw Exception('ไม่สามารถอ่านรูปภาพได้');
-      }
-
-      // ปรับขนาดเป็น 224x224 โดยรักษาสัดส่วน
-      final img.Image resizedImage = img.copyResize(
-        originalImage,
-        width: 224,
-        height: 224,
-        interpolation: img.Interpolation.linear
-      );
-
-      // บันทึกรูปที่ปรับขนาดแล้ว
-      final String tempPath = originalFile.path.replaceAll(
-        RegExp(r'\.[^.]*$'), 
-        '_resized.jpg'
-      );
-      final File resizedFile = File(tempPath);
-      await resizedFile.writeAsBytes(img.encodeJpg(resizedImage));
-
+      // --- (แก้ไข) ---
+      // ลบโค้ดส่วนที่ปรับขนาดภาพ 224x224 ออกทั้งหมด
+      // และใช้ไฟล์ต้นฉบับที่เลือกมาเลย
       setState(() {
-        _imageFile = resizedFile; // บันทึกไฟล์ที่ปรับขนาดแล้ว
+        _imageFile = File(pickedFile.path); // บันทึกไฟล์ต้นฉบับ
       });
 
     } catch (e) {
-      print("Error resizing image: $e");
+      print("Error picking image: $e"); // (แก้ไขข้อความ)
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('ไม่สามารถปรับขนาดรูปภาพได้: $e')),
+        SnackBar(content: Text('เกิดข้อผิดพลาดในการเลือกรูปภาพ: $e')),
       );
     }
   }
@@ -85,6 +64,7 @@ class _ImagePickerScreenState extends State<ImagePickerScreen> {
     setState(() => _isLoading = true);
 
     // แปลง File -> XFile ชั่วคราวเพื่อให้ service ทำงานได้
+    // (หมายเหตุ: TFLiteService ของเราจะอ่าน _imageFile.path โดยตรง)
     final xFileImage = XFile(_imageFile!.path);
 
     // รันโมเดล
@@ -150,7 +130,7 @@ class _ImagePickerScreenState extends State<ImagePickerScreen> {
                   child: Padding(
                     padding: const EdgeInsets.all(20.0),
                     child: Container(
-                      constraints: const BoxConstraints(maxWidth: 224, maxHeight: 224),
+                      constraints: const BoxConstraints(maxWidth: 224, maxHeight: 224), // (ยังคงแสดงผลขนาด 224 เพื่อความสวยงาม)
                       child: AspectRatio(
                         aspectRatio: 1,
                         child: ClipRRect(
@@ -188,12 +168,12 @@ class _ImagePickerScreenState extends State<ImagePickerScreen> {
         child: Icon(Icons.photo_library_outlined, size: 100, color: Colors.grey[400]),
       );
     } else {
-      // (แก้ไข) แสดงผลจาก File แทน XFile
+      // (เหมือนเดิม) แสดงผลจาก File
       return Stack(
         fit: StackFit.expand,
         children: [
           Image.file(
-            _imageFile!, // <-- (แก้ไข)
+            _imageFile!,
             fit: BoxFit.cover,
           ),
           Positioned(

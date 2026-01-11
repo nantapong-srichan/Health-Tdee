@@ -5,8 +5,8 @@ import 'package:provider/provider.dart';
 
 
 Future<void> main() async {
-  // ไม่ต้องใช้ WidgetsFlutterBinding.ensureInitialized()
-  // ไม่ต้องใช้ await availableCameras()
+  // Initialize Flutter bindings (required for secure storage and native channels)
+  WidgetsFlutterBinding.ensureInitialized();
   
   runApp(
     ChangeNotifierProvider(
