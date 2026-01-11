@@ -88,5 +88,4 @@ flutter run
 - Verify bottom navigation onPressed callback
 - Check navigation isn't blocked
 
-See [QUICK_START.md](QUICK_START.md#-troubleshooting) for more help.
 
