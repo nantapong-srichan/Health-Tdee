@@ -55,7 +55,7 @@ flutter run
    - Monitor progress
 
 
-## 📈 Future Roadmap
+##  Future Roadmap
 
 ### Phase 2
 - Backend API integration
@@ -69,7 +69,7 @@ flutter run
 - Meal recommendations
 - Export features
 
-## 🐛 Troubleshooting
+##  Troubleshooting
 
 ### Common Issues
 
