@@ -28,6 +28,11 @@ const userSchema = new mongoose.Schema(
     },
 
     // User Profile
+    gender: {
+      type: String,
+      enum: ['male', 'female', 'other'],
+      description: 'User gender for BMR calculation',
+    },
     age: {
       type: Number,
       min: [1, 'Age must be at least 1'],
@@ -40,6 +45,32 @@ const userSchema = new mongoose.Schema(
     height: {
       type: Number,
       description: 'Height in cm',
+    },
+    bmr: {
+      type: Number,
+      description: 'Basal Metabolic Rate in kcal/day',
+      default: null,
+    },
+    tdee: {
+      type: Number,
+      description: 'Total Daily Energy Expenditure in kcal/day',
+      default: null,
+    },
+    goal: {
+      type: String,
+      enum: ['weight_loss', 'weight_gain', 'maintain', 'muscle_gain'],
+      default: 'maintain',
+      description: 'User fitness goal',
+    },
+    dailyCalorieNeed: {
+      type: Number,
+      description: 'Adjusted daily calorie need based on goal in kcal/day',
+      default: null,
+    },
+    proteinGrams: {
+      type: Number,
+      description: 'Protein requirement in grams per day',
+      default: null,
     },
     activityLevel: {
       type: String,

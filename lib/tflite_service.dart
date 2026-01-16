@@ -169,7 +169,7 @@ class TFLiteService {
 
       var maxScore = -double.infinity;
       var maxIdx = -1;
-      const double CONFIDENCE_THRESHOLD = 0.70; // Lowered threshold to 70%
+      const double CONFIDENCE_THRESHOLD = 0.45; // Lowered threshold to 45%
 
       // Loop through all 8400 boxes to find the one with the highest confidence
       for (int i = 0; i < numBoxes; i++) {

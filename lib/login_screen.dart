@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/gestures.dart';
+import 'package:provider/provider.dart';
 import 'services/auth_service.dart';
+import 'session_data.dart';
 import 'home_screen.dart';
 import 'register_screen.dart';
 
@@ -56,6 +58,24 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (result['success']) {
         if (mounted) {
+          // Update SessionData with user health metrics from login response
+          final sessionData = Provider.of<SessionData>(context, listen: false);
+          final userProfile = result['user'] as Map<String, dynamic>?;
+          if (userProfile != null) {
+            if (userProfile['tdee'] != null) {
+              sessionData.updateTDEE((userProfile['tdee'] as num).toDouble());
+            }
+            if (userProfile['dailyCalorieNeed'] != null) {
+              sessionData.updateDailyCalorieNeed((userProfile['dailyCalorieNeed'] as num).toDouble());
+            }
+            if (userProfile['proteinGrams'] != null) {
+              sessionData.updateProteinGrams((userProfile['proteinGrams'] as num).toDouble());
+            }
+            if (userProfile['bmr'] != null) {
+              sessionData.updateBMR((userProfile['bmr'] as num).toDouble());
+            }
+          }
+          
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (context) => const HomeScreen()),
           );

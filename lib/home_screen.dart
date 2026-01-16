@@ -300,7 +300,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 builder: (context, data, _) {
                   final selectedDate = data.selectedDate ?? DateTime.now();
                   final caloriesForDate = data.getCaloriesForDate(selectedDate);
-                  final goal = int.tryParse(data.goal ?? '2000') ?? 2000;
+                  final goal = (data.dailyCalorieNeed ?? data.tdee ?? 2000).round();
                   return Text(
                     '${caloriesForDate.toStringAsFixed(0)}/$goal kcal',
                     style: theme.bodyMedium?.copyWith(color: Colors.grey),
@@ -314,7 +314,7 @@ class _HomeScreenState extends State<HomeScreen> {
             builder: (context, data, _) {
               final selectedDate = data.selectedDate ?? DateTime.now();
               final caloriesForDate = data.getCaloriesForDate(selectedDate);
-              final goal = int.tryParse(data.goal ?? '2000') ?? 2000;
+              final goal = (data.dailyCalorieNeed ?? data.tdee ?? 2000).round();
               final percent = (caloriesForDate / goal).clamp(0.0, 1.0);
               
               return Center(

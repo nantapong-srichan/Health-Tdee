@@ -142,10 +142,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
         password: _passwordController.text,
         name: _nameController.text.trim(),
         dateOfBirth: _dobController.text,
+        age: _ageController.text.isNotEmpty ? int.parse(_ageController.text) : null,
         weight: weight,
         height: height,
-        activityLevel: _selectedExerciseFrequency,
         gender: _selectedGender,
+        activityLevel: _selectedExerciseFrequency,
         goal: _selectedGoal,
         dailyCalorieGoal: 2000,
       );
@@ -167,6 +168,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
           sessionData.updateGoal(_selectedGoal);
           sessionData.updateGender(_selectedGender);
           sessionData.updateExerciseStyle(_selectedExerciseFrequency);
+          
+          // Update health metrics from API response
+          final userProfile = loginResult['user'] as Map<String, dynamic>?;
+          if (userProfile != null) {
+            if (userProfile['bmr'] != null) {
+              sessionData.updateBMR((userProfile['bmr'] as num).toDouble());
+            }
+            if (userProfile['tdee'] != null) {
+              sessionData.updateTDEE((userProfile['tdee'] as num).toDouble());
+            }
+            if (userProfile['dailyCalorieNeed'] != null) {
+              sessionData.updateDailyCalorieNeed((userProfile['dailyCalorieNeed'] as num).toDouble());
+            }
+            if (userProfile['proteinGrams'] != null) {
+              sessionData.updateProteinGrams((userProfile['proteinGrams'] as num).toDouble());
+            }
+          }
+          
           if (_selectedImage != null) {
             sessionData.updateProfileImagePath(_selectedImage!.path);
           }
@@ -817,10 +836,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   List<Widget> _buildExerciseFrequencyOptions() {
     final options = [
-      {'value': 'daily', 'label': 'ออกกำลังกายทุกวัน'},
-      {'value': '6-7', 'label': 'ออกกำลังกาย 6-7 ครั้งต่อสัปดาห์'},
-      {'value': '3-5', 'label': 'ออกกำลังกาย 3-5 ครั้งต่อสัปดาห์'},
-      {'value': '1-2', 'label': 'ออกกำลังกาย 1-2 ครั้งต่อสัปดาห์'},
+      {'value': 'veryActive', 'label': 'ออกกำลังกายทุกวัน'},
+      {'value': 'active', 'label': 'ออกกำลังกาย 6-7 ครั้งต่อสัปดาห์'},
+      {'value': 'moderate', 'label': 'ออกกำลังกาย 3-5 ครั้งต่อสัปดาห์'},
+      {'value': 'light', 'label': 'ออกกำลังกาย 1-2 ครั้งต่อสัปดาห์'},
     ];
 
     return options.map((option) {

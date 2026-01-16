@@ -16,6 +16,12 @@ class SessionData with ChangeNotifier {
   String? exerciseStyle; // < รับค่า null ได้
   String? goal; // < รับค่า null ได้
   String? healthInfo; // < รับค่า null ได้
+  
+  // ข้อมูลสุขภาพ (BMR, TDEE, Protein)
+  double? bmr;
+  double? tdee;
+  double? dailyCalorieNeed;
+  double? proteinGrams;
 
   // ข้อมูลการรับประทานอาหาร พร้อมวันที่
   List<Map<String, dynamic>> meals = [];
@@ -70,6 +76,27 @@ class SessionData with ChangeNotifier {
     notifyListeners();
   }
 
+  // ฟังก์ชันสำหรับอัปเดตข้อมูลสุขภาพ (BMR, TDEE, Protein)
+  void updateBMR(double value) {
+    bmr = value;
+    notifyListeners();
+  }
+
+  void updateTDEE(double value) {
+    tdee = value;
+    notifyListeners();
+  }
+
+  void updateDailyCalorieNeed(double value) {
+    dailyCalorieNeed = value;
+    notifyListeners();
+  }
+
+  void updateProteinGrams(double value) {
+    proteinGrams = value;
+    notifyListeners();
+  }
+
   // ฟังก์ชันสำหรับเคลียร์ข้อมูล
   void clearData() {
     dateOfBirth = null;
@@ -79,6 +106,10 @@ class SessionData with ChangeNotifier {
     exerciseStyle = null;
     goal = null;
     healthInfo = null;
+    bmr = null;
+    tdee = null;
+    dailyCalorieNeed = null;
+    proteinGrams = null;
     notifyListeners();
   }
 
@@ -223,6 +254,12 @@ class SessionData with ChangeNotifier {
 
   // Get daily calorie goal based on selected goal
   double getDailyCalorieGoal() {
+    // Use calculated daily calorie need if available
+    if (dailyCalorieNeed != null && dailyCalorieNeed! > 0) {
+      return dailyCalorieNeed!;
+    }
+    
+    // Fallback to hardcoded values based on goal
     switch (goal) {
       case 'weight_loss':
         return 1800.0; // For weight loss

@@ -138,7 +138,10 @@ class AuthService {
     required int age,
     required double weight,
     required double height,
+    required String gender,
+    required double bmr,
     required String activityLevel,
+    required String goal,
     required int dailyCalorieGoal,
   }) async {
     try {
@@ -150,7 +153,10 @@ class AuthService {
           'age': age,
           'weight': weight,
           'height': height,
+          'gender': gender,
+          'bmr': bmr,
           'activityLevel': activityLevel,
+          'goal': goal,
           'dailyCalorieGoal': dailyCalorieGoal,
         },
       );
