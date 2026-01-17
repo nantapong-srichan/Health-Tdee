@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 import 'package:provider/provider.dart'; 
+import 'services/auth_service.dart';
 import 'session_data.dart'; 
 import 'image_picker_screen.dart';
 import 'profile_screen.dart'; 
@@ -16,6 +17,55 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedTabIndex = 0; // 0: daily, 1: 7days, 2: 30days
+  final _authService = AuthService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserDataAndRefresh();
+  }
+
+  Future<void> _loadUserDataAndRefresh() async {
+    try {
+      final profile = await _authService.getCurrentUser();
+      if (mounted && profile['user'] != null) {
+        final sessionData = Provider.of<SessionData>(context, listen: false);
+        final userProfile = profile['user'] as Map<String, dynamic>;
+        
+        // Update SessionData with latest health metrics
+        if (userProfile['tdee'] != null) {
+          sessionData.updateTDEE((userProfile['tdee'] as num).toDouble());
+        }
+        if (userProfile['dailyCalorieNeed'] != null) {
+          sessionData.updateDailyCalorieNeed(
+              (userProfile['dailyCalorieNeed'] as num).toDouble());
+        }
+        if (userProfile['proteinGrams'] != null) {
+          sessionData.updateProteinGrams(
+              (userProfile['proteinGrams'] as num).toDouble());
+        }
+        if (userProfile['bmr'] != null) {
+          sessionData.updateBMR((userProfile['bmr'] as num).toDouble());
+        }
+        if (userProfile['activityLevel'] != null) {
+          sessionData.updateActivityLevel(userProfile['activityLevel'] as String);
+        }
+        if (userProfile['goal'] != null) {
+          sessionData.updateGoal(userProfile['goal'] as String);
+        }
+        if (userProfile['weight'] != null) {
+          sessionData.updateWeightDouble(
+              (userProfile['weight'] as num).toDouble());
+        }
+        if (userProfile['height'] != null) {
+          sessionData.updateHeightDouble(
+              (userProfile['height'] as num).toDouble());
+        }
+      }
+    } catch (e) {
+      // Handle error silently - user data refresh failure
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -83,7 +133,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     MaterialPageRoute(
                       builder: (context) => const ProfileScreen(),
                     ),
-                  );
+                  ).then((_) {
+                    // Refresh user data when returning from ProfileScreen
+                    _loadUserDataAndRefresh();
+                  });
                 },
               ),
             ],

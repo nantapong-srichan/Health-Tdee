@@ -11,11 +11,14 @@ class SessionData with ChangeNotifier {
   String? gender; // < รับค่า null ได้
   String? height;
   String? weight;
+  double? heightDouble;
+  double? weightDouble;
   
   // ข้อมูลจากปุ่มเลือก
   String? exerciseStyle; // < รับค่า null ได้
   String? goal; // < รับค่า null ได้
   String? healthInfo; // < รับค่า null ได้
+  String? activityLevel; // < ระดับการออกกำลังกาย
   
   // ข้อมูลสุขภาพ (BMR, TDEE, Protein)
   double? bmr;
@@ -48,9 +51,19 @@ class SessionData with ChangeNotifier {
     height = newHeight;
     notifyListeners();
   }
+
+  void updateHeightDouble(double newHeight) {
+    heightDouble = newHeight;
+    notifyListeners();
+  }
   
   void updateWeight(String newWeight) {
     weight = newWeight;
+    notifyListeners();
+  }
+
+  void updateWeightDouble(double newWeight) {
+    weightDouble = newWeight;
     notifyListeners();
   }
 
@@ -63,6 +76,11 @@ class SessionData with ChangeNotifier {
 
   void updateExerciseStyle(String? style) { // < เปลี่ยนเป็น String?
     exerciseStyle = style;
+    notifyListeners();
+  }
+
+  void updateActivityLevel(String? newActivityLevel) { // < ระดับการออกกำลังกาย
+    activityLevel = newActivityLevel;
     notifyListeners();
   }
 
@@ -103,7 +121,10 @@ class SessionData with ChangeNotifier {
     gender = null;
     height = null;
     weight = null;
+    heightDouble = null;
+    weightDouble = null;
     exerciseStyle = null;
+    activityLevel = null;
     goal = null;
     healthInfo = null;
     bmr = null;

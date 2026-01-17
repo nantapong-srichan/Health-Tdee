@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'services/auth_service.dart';
+import 'services/bmr_calculator.dart';
 import 'session_data.dart';
 import 'get_started_screen.dart';
 
@@ -12,6 +14,31 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  final _authService = AuthService();
+  Map<String, dynamic>? _userProfile;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserProfile();
+  }
+
+  Future<void> _loadUserProfile() async {
+    try {
+      final profile = await _authService.getCurrentUser();
+      setState(() {
+        _userProfile = profile;
+      });
+    } catch (e) {
+      // Handle error silently
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -451,6 +478,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _editHealthInfo(BuildContext context, TextTheme theme, SessionData sessionData) {
+    if (_userProfile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ยังไม่สามารถโหลดข้อมูลได้'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final userProfile = _userProfile!['user'] as Map<String, dynamic>?;
+    if (userProfile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ไม่พบข้อมูลผู้ใช้'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final weightController = TextEditingController(
+      text: userProfile['weight']?.toString() ?? '',
+    );
+    final heightController = TextEditingController(
+      text: userProfile['height']?.toString() ?? '',
+    );
+    final ageController = TextEditingController(
+      text: userProfile['age']?.toString() ?? '',
+    );
+    
+    String _selectedActivityLevel = userProfile['activityLevel'] ?? 'moderate';
+    String _selectedGoal = userProfile['goal'] ?? 'maintain';
+    String _selectedGender = userProfile['gender'] ?? 'male';
+    bool _isLoading = false;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -458,75 +521,393 @@ class _ProfileScreenState extends State<ProfileScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 20,
-            right: 20,
-            top: 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'ข้อมูลสุขภาพ',
-                style: theme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                left: 20,
+                right: 20,
+                top: 20,
               ),
-              const SizedBox(height: 20),
-              TextField(
-                decoration: InputDecoration(
-                  labelText: 'น้ำหนัก (kg)',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                decoration: InputDecoration(
-                  labelText: 'ส่วนสูง (cm)',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                decoration: InputDecoration(
-                  labelText: 'เป้าแคลอรี่ (kcal)',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFABB5A),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ข้อมูลสุขภาพ',
+                      style: theme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                     ),
-                  ),
-                  child: Text(
-                    'บันทึก',
-                    style: theme.titleMedium?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+                    const SizedBox(height: 20),
+                    Text(
+                      'อายุ (ปี)',
+                      style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
                     ),
-                  ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: ageController,
+                      keyboardType: TextInputType.number,
+                      enabled: !_isLoading,
+                      decoration: InputDecoration(
+                        hintText: 'กรอกอายุ',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'น้ำหนัก (กก)',
+                      style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: weightController,
+                      keyboardType: TextInputType.number,
+                      enabled: !_isLoading,
+                      decoration: InputDecoration(
+                        hintText: 'กรอกน้ำหนัก',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'ส่วนสูง (ซม)',
+                      style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: heightController,
+                      keyboardType: TextInputType.number,
+                      enabled: !_isLoading,
+                      decoration: InputDecoration(
+                        hintText: 'กรอกส่วนสูง',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'เพศ',
+                      style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: DropdownButton<String>(
+                        value: _selectedGender,
+                        isExpanded: true,
+                        underline: const SizedBox.shrink(),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'male',
+                            child: Text('ชาย'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'female',
+                            child: Text('หญิง'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'other',
+                            child: Text('อื่นๆ'),
+                          ),
+                        ],
+                        onChanged: _isLoading
+                            ? null
+                            : (value) {
+                                setState(() {
+                                  _selectedGender = value ?? 'male';
+                                });
+                              },
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'รูปแบบการออกกำลังกาย',
+                      style: theme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 12),
+                    ..._buildActivityLevelOptions(
+                      selectedValue: _selectedActivityLevel,
+                      onChanged: _isLoading
+                          ? null
+                          : (value) {
+                              setState(() {
+                                _selectedActivityLevel = value;
+                              });
+                            },
+                      theme: theme,
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'เป้าหมาย',
+                      style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: DropdownButton<String>(
+                        value: _selectedGoal,
+                        isExpanded: true,
+                        underline: const SizedBox.shrink(),
+                        items: [
+                          DropdownMenuItem(
+                            value: 'weight_loss',
+                            child: Text('ลดน้ำหนัก', style: theme.bodyMedium),
+                          ),
+                          DropdownMenuItem(
+                            value: 'weight_gain',
+                            child: Text('เพิ่มน้ำหนัก', style: theme.bodyMedium),
+                          ),
+                          DropdownMenuItem(
+                            value: 'maintain',
+                            child: Text('รักษาน้ำหนัก', style: theme.bodyMedium),
+                          ),
+                          DropdownMenuItem(
+                            value: 'muscle_gain',
+                            child: Text('เพิ่มกล้ามเนื้อ', style: theme.bodyMedium),
+                          ),
+                        ],
+                        onChanged: _isLoading
+                            ? null
+                            : (value) {
+                                setState(() {
+                                  _selectedGoal = value ?? 'maintain';
+                                });
+                              },
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _isLoading
+                            ? null
+                            : () async {
+                                if (weightController.text.isEmpty ||
+                                    heightController.text.isEmpty ||
+                                    ageController.text.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('กรุณากรอกข้อมูลให้ครบถ้วน'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                  return;
+                                }
+
+                                setState(() {
+                                  _isLoading = true;
+                                });
+
+                                try {
+                                  final age = int.parse(ageController.text);
+                                  final weight = double.parse(weightController.text);
+                                  final height = double.parse(heightController.text);
+
+                                  // Calculate BMR
+                                  final bmr = BMRCalculator.calculate(
+                                    gender: _selectedGender,
+                                    weight: weight,
+                                    height: height,
+                                    age: age,
+                                  );
+
+                                  // Update profile via API
+                                  final result = await _authService.updateProfile(
+                                    name: userProfile['name'] ?? 'User',
+                                    age: age,
+                                    weight: weight,
+                                    height: height,
+                                    gender: _selectedGender,
+                                    bmr: bmr,
+                                    activityLevel: _selectedActivityLevel,
+                                    goal: _selectedGoal,
+                                    dailyCalorieGoal: 2000,
+                                  );
+
+                                  if (mounted) {
+                                    if (result['success']) {
+                                      // Update SessionData
+                                      sessionData.updateWeightDouble(weight);
+                                      sessionData.updateHeightDouble(height);
+                                      sessionData.updateActivityLevel(_selectedActivityLevel);
+                                      sessionData.updateGoal(_selectedGoal);
+                                      sessionData.updateGender(_selectedGender);
+                                      sessionData.updateBMR(bmr);
+
+                                      // Reload user profile
+                                      await _loadUserProfile();
+
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('บันทึกข้อมูลสำเร็จ'),
+                                            backgroundColor: Colors.green,
+                                          ),
+                                        );
+                                        Navigator.pop(context);
+                                      }
+                                    } else {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(result['message'] ?? 'เกิดข้อผิดพลาด'),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                } catch (e) {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('เกิดข้อผิดพลาด: $e'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                } finally {
+                                  if (mounted) {
+                                    setState(() {
+                                      _isLoading = false;
+                                    });
+                                  }
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _isLoading
+                              ? Colors.grey[400]
+                              : const Color(0xFFFABB5A),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: _isLoading
+                            ? SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.grey[600]!,
+                                  ),
+                                ),
+                              )
+                            : Text(
+                                'บันทึก',
+                                style: theme.titleMedium?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
                 ),
               ),
-              const SizedBox(height: 20),
-            ],
-          ),
+            );
+          },
         );
       },
     );
+  }
+
+  List<Widget> _buildActivityLevelOptions({
+    required String selectedValue,
+    required Function(String)? onChanged,
+    required TextTheme theme,
+  }) {
+    final options = [
+      {'value': 'veryActive', 'label': 'ออกกำลังกายทุกวัน'},
+      {'value': 'active', 'label': 'ออกกำลังกาย 6-7 ครั้งต่อสัปดาห์'},
+      {'value': 'moderate', 'label': 'ออกกำลังกาย 3-5 ครั้งต่อสัปดาห์'},
+      {'value': 'light', 'label': 'ออกกำลังกาย 1-2 ครั้งต่อสัปดาห์'},
+    ];
+
+    return options.map((option) {
+      final value = option['value'] as String;
+      final label = option['label'] as String;
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: GestureDetector(
+          onTap: onChanged == null
+              ? null
+              : () {
+                  onChanged(value);
+                },
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+            decoration: BoxDecoration(
+              color: selectedValue == value
+                  ? const Color(0xFFFABB5A).withOpacity(0.1)
+                  : Colors.white,
+              border: Border.all(
+                color: selectedValue == value
+                    ? const Color(0xFFFABB5A)
+                    : Colors.grey[300]!,
+                width: selectedValue == value ? 2 : 1,
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: selectedValue == value
+                          ? const Color(0xFFFABB5A)
+                          : Colors.grey[300]!,
+                      width: 2,
+                    ),
+                  ),
+                  child: selectedValue == value
+                      ? Center(
+                          child: Container(
+                            width: 12,
+                            height: 12,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Color(0xFFFABB5A),
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: theme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }).toList();
   }
 
   void _showLogoutDialog(BuildContext context, TextTheme theme) {
