@@ -2,8 +2,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import 'services/meal_service.dart';
 import 'services/api_service.dart';
+import 'session_data.dart';
 import 'home_screen.dart';
 
 class MealEditScreen extends StatefulWidget {
@@ -67,22 +69,54 @@ class _MealEditScreenState extends State<MealEditScreen> {
       }
 
       final mealService = MealService();
+      print('DEBUG MEAL_EDIT: Starting saveMeal with:');
+      print('DEBUG MEAL_EDIT: - foodName: ${widget.foodName}');
+      print('DEBUG MEAL_EDIT: - calories: ${_calories.toInt()}');
+      print('DEBUG MEAL_EDIT: - protein: ${_protein.toInt()}');
+      print('DEBUG MEAL_EDIT: - carbs: ${_carbs.toInt()}');
+      print('DEBUG MEAL_EDIT: - fat: ${_fat.toInt()}');
+      print('DEBUG MEAL_EDIT: - fiber: ${_fiber.toInt()}');
+      print('DEBUG MEAL_EDIT: - sodium: ${_sodium.toInt()}');
+      
       final response = await mealService.saveMeal(
         foodName: widget.foodName,
         calories: _calories.toInt(),
-        protein: _protein,
-        carbs: _carbs,
-        fat: _fat,
-        fiber: _fiber,
-        sodium: _sodium,
+        protein: _protein.toInt(),
+        carbs: _carbs.toInt(),
+        fat: _fat.toInt(),
+        fiber: _fiber.toInt(),
+        sodium: _sodium.toInt(),
         estimatedWeight: widget.estimatedWeight,
         confidence: widget.confidence,
         mealType: 'lunch',
         mealTime: DateTime.now(),
       );
 
+      print('DEBUG MEAL_EDIT: saveMeal response: $response');
+      print('DEBUG MEAL_EDIT: Response success: ${response['success']}');
+      print('DEBUG MEAL_EDIT: Response message: ${response['message']}');
+      print('DEBUG MEAL_EDIT: Response errors: ${response['errors']}');
+      print('DEBUG MEAL_EDIT: MealId: ${response['mealId']}');
+
       if (mounted) {
         if (response['success']) {
+          // Add meal to SessionData
+          final sessionData = Provider.of<SessionData>(context, listen: false);
+          sessionData.addMeal({
+            'foodName': widget.foodName,
+            'calories': _calories,
+            'protein': _protein,
+            'carbs': _carbs,
+            'fat': _fat,
+            'fiber': _fiber,
+            'sodium': _sodium,
+            'estimatedWeight': widget.estimatedWeight,
+            'confidence': widget.confidence,
+            'mealType': 'lunch',
+            'date': DateTime.now().toString().split(' ')[0], // YYYY-MM-DD
+            'mealId': response['mealId'], // Store meal ID from backend
+          });
+
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('บันทึกอาหารสำเร็จ'),

@@ -34,14 +34,6 @@ class NutritionInfo {
 
 class NutritionDatabase {
   static const Map<String, NutritionInfo> database = {
-    'แกงจืดมะระยัดไส้หมูสับ': NutritionInfo(
-      foodName: 'แกงจืดมะระยัดไส้หมูสับ',
-      calories: 180,
-      protein: 15.2,
-      fat: 8.5,
-      carbs: 12.3,
-      description: 'แกงจืดมะระยัดไส้หมูสับ เมนูอาหารไทยที่ให้คุณค่าทางโภชนาการสูง มีรสชาติกลมกล่อม',
-    ),
     'แกงเขียวหวานไก่': NutritionInfo(
       foodName: 'แกงเขียวหวานไก่',
       calories: 250,
@@ -49,6 +41,14 @@ class NutritionDatabase {
       fat: 15.8,
       carbs: 10.2,
       description: 'แกงเขียวหวานไก่ อาหารไทยรสจัดจ้าน ทำจากพริกแกงเขียวหวาน กะทิ และเนื้อไก่',
+    ),
+    'แกงจืดมะระยัดไส้หมูสับ': NutritionInfo(
+      foodName: 'แกงจืดมะระยัดไส้หมูสับ',
+      calories: 180,
+      protein: 15.2,
+      fat: 8.5,
+      carbs: 12.3,
+      description: 'แกงจืดมะระยัดไส้หมูสับ เมนูอาหารไทยที่ให้คุณค่าทางโภชนาการสูง มีรสชาติกลมกล่อม',
     ),
     'ไข่ดาว': NutritionInfo(
       foodName: 'ไข่ดาว',

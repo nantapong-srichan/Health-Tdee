@@ -26,9 +26,22 @@ class SessionData with ChangeNotifier {
   double? dailyCalorieNeed;
   double? proteinGrams;
 
-  // ข้อมูลการรับประทานอาหาร พร้อมวันที่
-  List<Map<String, dynamic>> meals = [];
+  // ข้อมูลการรับประทานอาหาร พร้อมวันที่ (เก็บแยกตามวันที่)
+  Map<String, List<Map<String, dynamic>>> mealsByDate = {}; // date (YYYY-MM-DD) -> meals list
   DateTime? selectedDate; // วันที่ที่เลือกสำหรับแสดงผล
+  
+  // Get meals for a specific date
+  List<Map<String, dynamic>> getMealsForDate(DateTime date) {
+    final dateKey = date.toString().split(' ')[0]; // YYYY-MM-DD
+    return mealsByDate[dateKey] ?? [];
+  }
+  
+  // Get all meals for currently selected date (backward compatibility)
+  List<Map<String, dynamic>> get meals {
+    final dateKey = selectedDate?.toString().split(' ')[0] ?? 
+                   DateTime.now().toString().split(' ')[0];
+    return mealsByDate[dateKey] ?? [];
+  }
 
   // ฟังก์ชันอัปเดตข้อมูล Text
   // ฟังก์ชันอัปเดตข้อมูลผู้ใช้
@@ -140,7 +153,11 @@ class SessionData with ChangeNotifier {
     if (!meal.containsKey('date')) {
       meal['date'] = DateTime.now().toString().split(' ')[0]; // YYYY-MM-DD
     }
-    meals.add(meal);
+    final dateKey = meal['date'] as String;
+    if (mealsByDate[dateKey] == null) {
+      mealsByDate[dateKey] = [];
+    }
+    mealsByDate[dateKey]!.add(meal);
     notifyListeners();
   }
 
@@ -151,20 +168,34 @@ class SessionData with ChangeNotifier {
     }
   }
 
+  void removeMealById(String mealId) {
+    for (var dateKey in mealsByDate.keys) {
+      mealsByDate[dateKey]?.removeWhere((meal) => meal['mealId'] == mealId);
+    }
+    notifyListeners();
+  }
+
   void clearMeals() {
-    meals.clear();
+    final dateKey = selectedDate?.toString().split(' ')[0] ?? 
+                   DateTime.now().toString().split(' ')[0];
+    mealsByDate[dateKey] = [];
+    notifyListeners();
+  }
+
+  void clearMealsForDate(DateTime date) {
+    final dateKey = date.toString().split(' ')[0];
+    mealsByDate[dateKey] = [];
+    notifyListeners();
+  }
+
+  void clearAllMeals() {
+    mealsByDate.clear();
     notifyListeners();
   }
 
   void selectDate(DateTime date) {
     selectedDate = date;
     notifyListeners();
-  }
-
-  // Get meals for a specific date
-  List<Map<String, dynamic>> getMealsForDate(DateTime date) {
-    String dateStr = date.toString().split(' ')[0]; // YYYY-MM-DD
-    return meals.where((meal) => meal['date'] == dateStr).toList();
   }
 
   // Get today's meals

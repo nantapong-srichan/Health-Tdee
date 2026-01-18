@@ -4,9 +4,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 import 'package:provider/provider.dart'; 
 import 'services/auth_service.dart';
+import 'services/meal_service.dart';
+import 'services/api_service.dart';
 import 'session_data.dart'; 
 import 'image_picker_screen.dart';
-import 'profile_screen.dart'; 
+import 'profile_screen.dart';
+import 'meal_confirmation_screen.dart'; 
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,11 +20,18 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedTabIndex = 0; // 0: daily, 1: 7days, 2: 30days
+  late DateTime _selectedDate;
   final _authService = AuthService();
+  final _mealService = MealService();
 
   @override
   void initState() {
     super.initState();
+    _selectedDate = DateTime.now();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final sessionData = Provider.of<SessionData>(context, listen: false);
+      sessionData.selectedDate = _selectedDate;
+    });
     _loadUserDataAndRefresh();
   }
 
@@ -31,7 +41,10 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted && profile['user'] != null) {
         final sessionData = Provider.of<SessionData>(context, listen: false);
         final userProfile = profile['user'] as Map<String, dynamic>;
-        
+
+        if (userProfile['name'] != null) {
+          sessionData.userName = userProfile['name'] as String;
+        }
         // Update SessionData with latest health metrics
         if (userProfile['tdee'] != null) {
           sessionData.updateTDEE((userProfile['tdee'] as num).toDouble());
@@ -65,6 +78,77 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       // Handle error silently - user data refresh failure
     }
+
+    // Load meal history for today
+    _loadTodayMeals();
+  }
+
+  Future<void> _loadTodayMeals() async {
+    try {
+      final startOfDay = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+      final endOfDay = startOfDay.add(const Duration(days: 1)).subtract(const Duration(seconds: 1));
+
+      print('DEBUG: Loading meals for $_selectedDate');
+      print('DEBUG: Start: $startOfDay, End: $endOfDay');
+
+      // Check if authenticated
+      final apiService = ApiService();
+      final token = await apiService.getToken();
+      print('DEBUG: Token exists: ${token != null}');
+
+      final response = await _mealService.getMealHistory(
+        startDate: startOfDay.toIso8601String(),
+        endDate: endOfDay.toIso8601String(),
+        limit: 100,
+      );
+
+      print('DEBUG: getMealHistory response: $response');
+
+      if (mounted && response['success']) {
+        final sessionData = Provider.of<SessionData>(context, listen: false);
+        sessionData.selectedDate = _selectedDate;
+        
+        // Clear meals for this date before adding new ones (prevent duplicates)
+        sessionData.clearMealsForDate(_selectedDate);
+        
+        final meals = response['meals'] as List?;
+        print('DEBUG: Meals count: ${meals?.length ?? 0}');
+        
+        if (meals != null && meals.isNotEmpty) {
+          for (var meal in meals) {
+            print('DEBUG: Adding meal: ${meal['foodName']}');
+            sessionData.addMeal({
+              'foodName': meal['foodName'],
+              'calories': (meal['nutrition']?['calories'] ?? 0).toDouble(),
+              'protein': (meal['nutrition']?['protein'] ?? 0).toDouble(),
+              'carbs': (meal['nutrition']?['carbohydrates'] ?? 0).toDouble(),
+              'fat': (meal['nutrition']?['fat'] ?? 0).toDouble(),
+              'fiber': (meal['nutrition']?['fiber'] ?? 0).toDouble(),
+              'sodium': (meal['nutrition']?['sodium'] ?? 0).toDouble(),
+              'estimatedWeight': meal['estimatedWeight'],
+              'confidence': meal['confidence'],
+              'mealType': meal['mealType'] ?? 'other',
+              'date': _getMealDateInBangkokTime(meal['mealTime'] as String),
+              'mealId': meal['_id'],
+            });
+          }
+        } else {
+          print('DEBUG: No meals found or meals is null');
+        }
+      } else {
+        print('DEBUG: Response not successful or not mounted. Success: ${response['success']}, Mounted: $mounted');
+      }
+    } catch (e) {
+      // Handle error silently - meal history fetch failure
+      print('DEBUG: Error loading meals: $e');
+    }
+  }
+
+  String _getMealDateInBangkokTime(String utcMealTime) {
+    // Convert UTC mealTime to Bangkok time (UTC+7)
+    final utcTime = DateTime.parse(utcMealTime);
+    final bangkokTime = utcTime.add(const Duration(hours: 7));
+    return bangkokTime.toString().split(' ')[0]; // YYYY-MM-DD
   }
 
   @override
@@ -105,7 +189,10 @@ class _HomeScreenState extends State<HomeScreen> {
             MaterialPageRoute(
               builder: (context) => const ImagePickerScreen(),
             ),
-          );
+          ).then((_) {
+            // Refresh meal history when returning from ImagePickerScreen
+            _loadTodayMeals();
+          });
         },
         backgroundColor: const Color(0xFFFABB5A),
         shape: const CircleBorder(),
@@ -159,7 +246,9 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Text('ยินดีต้อนรับ', style: theme.bodyLarge?.copyWith(fontSize: 22)),
                 Text(
-                  sessionData.userName ?? 'ผู้ใช้',
+                  sessionData.userName != null && sessionData.userName!.trim().isNotEmpty
+                      ? sessionData.userName!
+                      : 'โหลดข้อมูล...',
                   style: theme.headlineLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                     fontSize: 34,
@@ -183,7 +272,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildTodayCaloriesCard(TextTheme theme, String goal) {
     return Consumer<SessionData>(
       builder: (context, sessionData, _) {
-        final todayCalories = sessionData.getTodayCalories();
+        // Use selected date instead of today
+        final selectedCalories = sessionData.getCaloriesForDate(_selectedDate);
         final goalCalories = sessionData.getDailyCalorieGoal();
         final goalLabel = sessionData.getGoalLabel();
         
@@ -203,9 +293,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   CircularPercentIndicator(
                     radius: 50.0,
                     lineWidth: 12.0,
-                    percent: (todayCalories / goalCalories).clamp(0.0, 1.0),
+                    percent: (selectedCalories / goalCalories).clamp(0.0, 1.0),
                     center: Text(
-                      "${todayCalories.toStringAsFixed(0)}/${goalCalories.toStringAsFixed(0)}\nแคลอรี่",
+                      "${selectedCalories.toStringAsFixed(0)}/${goalCalories.toStringAsFixed(0)}\nแคลอรี่",
                       textAlign: TextAlign.center,
                       style: theme.bodySmall,
                     ),
@@ -224,7 +314,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           style: theme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         Text(
-                          todayCalories < goalCalories ? 'อีกนิดเดียว!' : 'เกินแล้ว',
+                          selectedCalories < goalCalories ? 'อีกนิดเดียว!' : 'เกินแล้ว',
                           style: theme.bodyMedium?.copyWith(color: Colors.grey[600]),
                         ),
                       ],
@@ -250,7 +340,16 @@ class _HomeScreenState extends State<HomeScreen> {
           datesList.add(today.subtract(Duration(days: i)));
         }
         
-        int selectedIndex = 6; // เลือกวันนี้เป็นค่าเริ่มต้น
+        // หาวันที่เลือก index
+        int selectedIndex = datesList.indexWhere((date) => 
+          date.year == _selectedDate.year && 
+          date.month == _selectedDate.month && 
+          date.day == _selectedDate.day
+        );
+        
+        if (selectedIndex == -1) {
+          selectedIndex = 6; // Default to today
+        }
         
         return DefaultTabController(
           length: 3,
@@ -284,15 +383,19 @@ class _HomeScreenState extends State<HomeScreen> {
                     itemCount: datesList.length,
                     itemBuilder: (context, index) {
                       final date = datesList[index];
-                      bool isSelected = index == selectedIndex;
+                      bool isSelected = date.year == _selectedDate.year && 
+                                       date.month == _selectedDate.month && 
+                                       date.day == _selectedDate.day;
                       final dayName = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
                       
                       return GestureDetector(
                         onTap: () {
-                          setState(() {
-                            selectedIndex = index;
-                            sessionData.selectDate(date);
+                          final sessionData = Provider.of<SessionData>(context, listen: false);
+                          this.setState(() {
+                            _selectedDate = date;
+                            sessionData.selectedDate = date;
                           });
+                          _loadTodayMeals();
                         },
                         child: Container(
                           width: 50,
@@ -354,6 +457,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   final selectedDate = data.selectedDate ?? DateTime.now();
                   final caloriesForDate = data.getCaloriesForDate(selectedDate);
                   final goal = (data.dailyCalorieNeed ?? data.tdee ?? 2000).round();
+                  print('DEBUG HOME: selectedDate: $selectedDate');
+                  print('DEBUG HOME: caloriesForDate: $caloriesForDate');
+                  print('DEBUG HOME: meals for date: ${data.getMealsForDate(selectedDate).length}');
                   return Text(
                     '${caloriesForDate.toStringAsFixed(0)}/$goal kcal',
                     style: theme.bodyMedium?.copyWith(color: Colors.grey),
@@ -378,13 +484,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   center: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text("${caloriesForDate.toStringAsFixed(0)} kCal", style: theme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                      Text("${caloriesForDate.toStringAsFixed(0)} kCal", style: theme.titleLarge?.copyWith(fontWeight: FontWeight.bold, fontSize: 19)),
                       Text("เหลือ ${(goal - caloriesForDate).toStringAsFixed(0)}", style: theme.bodySmall?.copyWith(color: Colors.grey)),
                     ],
                   ),
                   progressColor: const Color(0xFFFABB5A),
                   backgroundColor: Colors.grey[200]!,
                   circularStrokeCap: CircularStrokeCap.round,
+                  startAngle: 180,
                 ),
               );
             },
@@ -395,6 +502,10 @@ class _HomeScreenState extends State<HomeScreen> {
             builder: (context, data, _) {
               final selectedDate = data.selectedDate ?? DateTime.now();
               final mealsForDate = data.getMealsForDate(selectedDate);
+              
+              print('DEBUG MEALS CARD: selectedDate: $selectedDate');
+              print('DEBUG MEALS CARD: mealsForDate count: ${mealsForDate.length}');
+              print('DEBUG MEALS CARD: all mealsByDate keys: ${data.mealsByDate.keys.toList()}');
               
               if (mealsForDate.isEmpty) {
                 return Center(
@@ -416,9 +527,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   final meal = mealsForDate[index];
                   return _buildFoodItem(
                     theme,
-                    meal['imagePath'] ?? 'assets/food1.png',
-                    meal['name'] ?? 'ไม่ระบุชื่อ',
-                    '${(meal['calories'] ?? 0).toStringAsFixed(0)} kCal',
+                    meal,
                   );
                 },
               );
@@ -429,20 +538,74 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildFoodItem(TextTheme theme, String imagePath, String name, String calories) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10.0),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 25,
-            backgroundImage: AssetImage(imagePath), // Food image
+  Widget _buildFoodItem(TextTheme theme, Map<String, dynamic> meal) {
+    final mealName = meal['foodName'] ?? 'ไม่ระบุชื่อ';
+    final calories = (meal['calories'] ?? 0).toStringAsFixed(0);
+    
+    return GestureDetector(
+      onTap: () {
+        // Navigate to meal confirmation screen for editing
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => MealConfirmationScreen(
+              foodName: mealName,
+              imagePath: meal['imagePath'] ?? '',
+              nutritionValues: {
+                'calories': (meal['calories'] ?? 0).toDouble(),
+                'protein': (meal['protein'] ?? 0).toDouble(),
+                'carbs': (meal['carbs'] ?? 0).toDouble(),
+                'fat': (meal['fat'] ?? 0).toDouble(),
+              },
+              mealId: meal['mealId'],
+              estimatedWeight: (meal['estimatedWeight'] ?? 100.0).toDouble(),
+            ),
           ),
-          const SizedBox(width: 15),
-          Text(name, style: theme.bodyLarge),
-          const Spacer(),
-          Text(calories, style: theme.bodyLarge?.copyWith(fontWeight: FontWeight.bold)),
-        ],
+        ).then((_) {
+          // Reload meals when returning from edit screen
+          _loadTodayMeals();
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.grey[50],
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.grey[200]!, width: 1),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(Icons.fastfood, color: Colors.grey[600], size: 28),
+            ),
+            const SizedBox(width: 15),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(mealName, style: theme.bodyLarge?.copyWith(fontWeight: FontWeight.bold)),
+                  Text(
+                    'กด เพื่อแก้ไข',
+                    style: theme.bodySmall?.copyWith(color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text('$calories kCal', style: theme.bodyLarge?.copyWith(fontWeight: FontWeight.bold)),
+                Icon(Icons.edit, color: Colors.grey[400], size: 18),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

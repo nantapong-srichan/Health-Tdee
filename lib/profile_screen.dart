@@ -71,37 +71,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Profile Card
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      const CircleAvatar(
-                        radius: 50,
-                        backgroundImage: AssetImage('assets/profile_pic.png'),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Nantapong',
-                        style: kanitTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 24,
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 260), // ปรับ 240-320 ได้
+                  child: Container(
+                    width: double.infinity, // ให้การ์ดเต็มความกว้างตาม maxWidth
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const CircleAvatar(
+                          radius: 50,
+                          backgroundImage: AssetImage('assets/profile_pic.png'),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'nantapong@example.com',
-                        style: kanitTheme.bodyMedium?.copyWith(
-                          color: Colors.grey[600],
+                        const SizedBox(height: 16),
+                        // Show username from database
+                        Text(
+                          _userProfile != null && _userProfile!['user'] != null
+                              ? _userProfile!['user']['name'] ?? 'ผู้ใช้'
+                              : 'โหลดข้อมูล...',
+                          textAlign: TextAlign.center,
+                          style: kanitTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 24,
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 8),
+                        // Show email from database
+                        Text(
+                          _userProfile != null && _userProfile!['user'] != null
+                              ? _userProfile!['user']['email'] ?? 'ไม่มีอีเมล'
+                              : 'โหลดข้อมูล...',
+                          textAlign: TextAlign.center,
+                          style: kanitTheme.bodyMedium?.copyWith(
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
+              ),
+
                 const SizedBox(height: 24),
 
                 // Menu Items
@@ -934,7 +949,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               sessionData.clearData();
               sessionData.userName = null;
               sessionData.profileImagePath = null;
-              sessionData.clearMeals();
+              sessionData.clearAllMeals(); // Clear all meals for all dates
               
               // Navigate to Get Started Screen
               Navigator.of(context).pushAndRemoveUntil(

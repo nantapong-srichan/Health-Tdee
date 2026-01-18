@@ -40,22 +40,19 @@ const validateMeal = [
   body('nutrition.calories')
     .isNumeric()
     .isInt({ min: 0 })
-    .withMessage('Calories must be a non-negative number'),
+    .withMessage('Calories must be a non-negative integer'),
 
   body('nutrition.protein')
     .isNumeric()
-    .isInt({ min: 0 })
-    .withMessage('Protein must be a non-negative number'),
+    .withMessage('Protein must be a valid number'),
 
   body('nutrition.carbohydrates')
     .isNumeric()
-    .isInt({ min: 0 })
-    .withMessage('Carbohydrates must be a non-negative number'),
+    .withMessage('Carbohydrates must be a valid number'),
 
   body('nutrition.fat')
     .isNumeric()
-    .isInt({ min: 0 })
-    .withMessage('Fat must be a non-negative number'),
+    .withMessage('Fat must be a valid number'),
 
   body('estimatedWeight')
     .isNumeric()
@@ -66,6 +63,7 @@ const validateMeal = [
 const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
+    console.error('DEBUG: Validation errors:', errors.array());
     return res.status(400).json({
       success: false,
       message: 'Validation errors',

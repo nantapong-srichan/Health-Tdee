@@ -2,17 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'session_data.dart';
+import 'services/meal_service.dart';
 
 class MealConfirmationScreen extends StatefulWidget {
   final String foodName;
   final String imagePath;
   final Map<String, double> nutritionValues; // {calories, protein, carbs, fat}
+  final String? mealId; // For editing existing meals
+  final double estimatedWeight; // Weight in grams
+  final bool fromResultsScreen; // True if called from results_screen
 
   const MealConfirmationScreen({
     super.key,
     required this.foodName,
     required this.imagePath,
     required this.nutritionValues,
+    this.mealId,
+    this.estimatedWeight = 100.0, // Default 100g
+    this.fromResultsScreen = false,
   });
 
   @override
@@ -56,6 +63,14 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
           ),
         ),
         centerTitle: true,
+        actions: [
+          // Delete button - only show if editing existing meal
+          if (widget.mealId != null)
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red),
+              onPressed: () => _showDeleteConfirmDialog(context),
+            )
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -289,33 +304,203 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
     );
   }
 
-  void _saveMeal(BuildContext context) {
-    final sessionData = Provider.of<SessionData>(context, listen: false);
-
-    // Create meal data object
-    final mealData = {
-      'name': widget.foodName,
-      'imagePath': widget.imagePath,
-      'calories': _calories,
-      'protein': _protein,
-      'carbs': _carbs,
-      'fat': _fat,
-      'timestamp': DateTime.now(),
-    };
-
-    // Add meal to session data
-    sessionData.addMeal(mealData);
-
-    // Show success message
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('บันทึก${widget.foodName}สำเร็จ'),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 2),
+  void _showDeleteConfirmDialog(BuildContext context) {
+    final kanitTheme = GoogleFonts.kanitTextTheme(Theme.of(context).textTheme);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'ลบอาหาร',
+          style: kanitTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          'คุณแน่ใจหรือว่าต้องการลบ${widget.foodName}?',
+          style: kanitTheme.bodyMedium,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'ยกเลิก',
+              style: kanitTheme.bodyMedium?.copyWith(color: Colors.grey),
+            ),
+          ),
+          TextButton(
+            onPressed: () => _deleteMeal(context),
+            child: Text(
+              'ลบ',
+              style: kanitTheme.bodyMedium?.copyWith(color: Colors.red),
+            ),
+          ),
+        ],
       ),
     );
+  }
 
-    // Pop back to home
-    Navigator.pop(context);
+  Future<void> _deleteMeal(BuildContext context) async {
+    try {
+      final mealService = MealService();
+      final response = await mealService.deleteMeal(widget.mealId!);
+
+      if (mounted) {
+        Navigator.pop(context); // Close dialog
+
+        if (response['success']) {
+          // Remove from SessionData
+          final sessionData = Provider.of<SessionData>(context, listen: false);
+          sessionData.removeMealById(widget.mealId!);
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('ลบ${widget.foodName}สำเร็จ'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+
+          // Navigate back to home screen
+          Navigator.pop(context);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('เกิดข้อผิดพลาด: ${response['message']}'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('เกิดข้อผิดพลาด: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  void _saveMeal(BuildContext context) async {
+    final sessionData = Provider.of<SessionData>(context, listen: false);
+
+    // Check if editing existing meal or creating new one
+    if (widget.mealId != null) {
+      // Edit existing meal
+      print('DEBUG MEAL_CONFIRMATION: Updating meal ${widget.mealId}');
+      
+      final mealService = MealService();
+      final response = await mealService.updateMeal(
+        mealId: widget.mealId!,
+        foodName: widget.foodName,
+        calories: _calories.toInt(),
+        protein: _protein,
+        carbs: _carbs,
+        fat: _fat,
+        fiber: 0.0,
+        sodium: 0.0,
+        estimatedWeight: widget.estimatedWeight,
+      );
+
+      print('DEBUG MEAL_CONFIRMATION: Update response: $response');
+
+      if (response['success']) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('แก้ไข${widget.foodName}สำเร็จ'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        // Return updated nutrition values
+        Navigator.pop(context, {
+          'calories': _calories,
+          'protein': _protein,
+          'carbs': _carbs,
+          'fat': _fat,
+        });
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('เกิดข้อผิดพลาด: ${response['message']}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } else {
+      // If coming from results_screen, only return values without saving
+      // results_screen will handle the saving
+      if (widget.fromResultsScreen) {
+        Navigator.pop(context, {
+          'calories': _calories,
+          'protein': _protein,
+          'carbs': _carbs,
+          'fat': _fat,
+        });
+        return;
+      }
+
+      // Create new meal (not from results_screen)
+      // Save to backend first
+      final mealService = MealService();
+      final response = await mealService.saveMeal(
+        foodName: widget.foodName,
+        calories: _calories.toInt(),
+        protein: _protein,
+        carbs: _carbs,
+        fat: _fat,
+        fiber: 0.0,
+        sodium: 0.0,
+        estimatedWeight: widget.estimatedWeight,
+        confidence: 0.0,
+        mealType: 'lunch',
+      );
+
+      print('DEBUG MEAL_CONFIRMATION: saveMeal response: $response');
+
+      if (response['success']) {
+        // Also save to SessionData for local display
+        final mealData = {
+          'name': widget.foodName,
+          'imagePath': widget.imagePath,
+          'calories': _calories,
+          'protein': _protein,
+          'carbs': _carbs,
+          'fat': _fat,
+          'timestamp': DateTime.now(),
+          'mealId': response['mealId'],
+        };
+
+        sessionData.addMeal(mealData);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('บันทึก${widget.foodName}สำเร็จ'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+
+        // Return nutrition values for results_screen
+        Navigator.pop(context, {
+          'calories': _calories,
+          'protein': _protein,
+          'carbs': _carbs,
+          'fat': _fat,
+        });
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('เกิดข้อผิดพลาด: ${response['message']}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
   }
 }
