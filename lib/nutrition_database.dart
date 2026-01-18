@@ -52,10 +52,10 @@ class NutritionDatabase {
     ),
     'ไข่ดาว': NutritionInfo(
       foodName: 'ไข่ดาว',
-      calories: 90,
-      protein: 6.3,
-      fat: 7.2,
-      carbs: 0.4,
+      calories: 155,
+      protein: 6.5,
+      fat: 12.0,
+      carbs: 0.5,
       description: 'ไข่ดาว หรือไข่เจียว เมนูอาหารพื้นฐานที่อุดมไปด้วยโปรตีน',
     ),
   };

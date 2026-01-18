@@ -29,18 +29,27 @@ class _ResultsScreenState extends State<ResultsScreen> {
   late double _protein;
   late double _carbs;
   late double _fat;
+  late double _estimatedWeight;
 
   @override
   void initState() {
     super.initState();
+    _estimatedWeight = widget.result.estimatedWeight;
+    _updateNutrition(_estimatedWeight);
+  }
+
+  void _updateNutrition(double weight) {
     final nutritionCalc = NutritionDatabase.calculateNutrition(
       widget.result.foodName,
-      widget.result.estimatedWeight,
+      weight,
     );
-    _calories = nutritionCalc?.calories ?? 0.0;
-    _protein = nutritionCalc?.protein ?? 0.0;
-    _carbs = nutritionCalc?.carbs ?? 0.0;
-    _fat = nutritionCalc?.fat ?? 0.0;
+    setState(() {
+      _estimatedWeight = weight;
+      _calories = nutritionCalc?.calories ?? 0.0;
+      _protein = nutritionCalc?.protein ?? 0.0;
+      _carbs = nutritionCalc?.carbs ?? 0.0;
+      _fat = nutritionCalc?.fat ?? 0.0;
+    });
   }
 
   @override
@@ -90,13 +99,27 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 color: Colors.grey[600],
               ),
             ),
+            const SizedBox(height: 16),
+            // Weight slider
             Text(
-              'น้ำหนักโดยประมาณ: ${widget.result.estimatedWeight.toStringAsFixed(0)} กรัม',
+              'น้ำหนักโดยประมาณ: ${_estimatedWeight.toStringAsFixed(0)} กรัม',
               textAlign: TextAlign.center,
               style: GoogleFonts.kanit(
                 fontSize: 18,
                 color: Colors.grey[700],
               ),
+            ),
+            Slider(
+              value: _estimatedWeight,
+              min: 50,
+              max: 800,
+              divisions: 75,
+              label: '${_estimatedWeight.toStringAsFixed(0)}g',
+              activeColor: const Color(0xFFFABB5A),
+              inactiveColor: Colors.grey[300],
+              onChanged: (value) {
+                _updateNutrition(value);
+              },
             ),
             const SizedBox(height: 24),
 
@@ -186,7 +209,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                         fat: _fat,
                         fiber: 0.0,
                         sodium: 0.0,
-                        estimatedWeight: widget.result.estimatedWeight,
+                        estimatedWeight: _estimatedWeight,
                         confidence: widget.result.confidence,
                         mealType: 'lunch',
                       );

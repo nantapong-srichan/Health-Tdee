@@ -31,14 +31,39 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
   late double _protein;
   late double _carbs;
   late double _fat;
+  late double _estimatedWeight;
+  late double _baseCalories;
+  late double _baseProtein;
+  late double _baseCarbs;
+  late double _baseFat;
 
   @override
   void initState() {
     super.initState();
-    _calories = widget.nutritionValues['calories'] ?? 0;
-    _protein = widget.nutritionValues['protein'] ?? 0;
-    _carbs = widget.nutritionValues['carbs'] ?? 0;
-    _fat = widget.nutritionValues['fat'] ?? 0;
+    _estimatedWeight = widget.estimatedWeight;
+    // Store base nutrition values (for original weight)
+    _baseCalories = widget.nutritionValues['calories'] ?? 0;
+    _baseProtein = widget.nutritionValues['protein'] ?? 0;
+    _baseCarbs = widget.nutritionValues['carbs'] ?? 0;
+    _baseFat = widget.nutritionValues['fat'] ?? 0;
+    
+    _calories = _baseCalories;
+    _protein = _baseProtein;
+    _carbs = _baseCarbs;
+    _fat = _baseFat;
+  }
+
+  void _updateNutritionByWeight(double newWeight) {
+    // Calculate ratio of new weight to original weight
+    final ratio = newWeight / widget.estimatedWeight;
+    
+    setState(() {
+      _estimatedWeight = newWeight;
+      _calories = _baseCalories * ratio;
+      _protein = _baseProtein * ratio;
+      _carbs = _baseCarbs * ratio;
+      _fat = _baseFat * ratio;
+    });
   }
 
   @override
@@ -119,6 +144,20 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
+
+                // Weight Slider
+                _buildWeightSlider(
+                  kanitTheme,
+                  'น้ำหนักโดยประมาณ',
+                  'g',
+                  _estimatedWeight,
+                  50,
+                  800,
+                  (value) {
+                    _updateNutritionByWeight(value);
+                  },
+                ),
+                const SizedBox(height: 20),
 
                 // Calories Slider
                 _buildNutritionSlider(
@@ -304,6 +343,78 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
     );
   }
 
+  Widget _buildWeightSlider(
+    TextTheme theme,
+    String label,
+    String unit,
+    double value,
+    double min,
+    double max,
+    Function(double) onChanged,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                label,
+                style: theme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFABB5A),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${value.toStringAsFixed(0)} $unit',
+                  style: theme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 8.0,
+              thumbShape: const RoundSliderThumbShape(
+                enabledThumbRadius: 12.0,
+              ),
+              overlayShape: const RoundSliderOverlayShape(
+                overlayRadius: 20.0,
+              ),
+            ),
+            child: Slider(
+              value: value,
+              min: min,
+              max: max,
+              divisions: ((max - min) / 10).toInt(),
+              activeColor: const Color(0xFFFABB5A),
+              inactiveColor: Colors.grey[200]!,
+              onChanged: onChanged,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showDeleteConfirmDialog(BuildContext context) {
     final kanitTheme = GoogleFonts.kanitTextTheme(Theme.of(context).textTheme);
     
@@ -402,7 +513,7 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
         fat: _fat,
         fiber: 0.0,
         sodium: 0.0,
-        estimatedWeight: widget.estimatedWeight,
+        estimatedWeight: _estimatedWeight,
       );
 
       print('DEBUG MEAL_CONFIRMATION: Update response: $response');
@@ -455,7 +566,7 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
         fat: _fat,
         fiber: 0.0,
         sodium: 0.0,
-        estimatedWeight: widget.estimatedWeight,
+        estimatedWeight: _estimatedWeight,
         confidence: 0.0,
         mealType: 'lunch',
       );

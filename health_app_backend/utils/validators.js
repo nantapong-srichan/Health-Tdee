@@ -56,8 +56,13 @@ const validateMeal = [
 
   body('estimatedWeight')
     .isNumeric()
-    .isInt({ min: 1 })
-    .withMessage('Weight must be at least 1 gram'),
+    .custom(value => {
+      if (parseFloat(value) < 1) {
+        throw new Error('Weight must be at least 1 gram');
+      }
+      return true;
+    })
+    .withMessage('Weight must be a valid number'),
 ];
 
 const handleValidationErrors = (req, res, next) => {

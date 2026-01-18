@@ -7,11 +7,14 @@ import 'recognition_result.dart';
 
 class TFLiteService {
   Interpreter? _foodClassifier;
+  Interpreter? _weightPredictor;
   List<String>? _labels;
 
   // Store model IO details
   late List<int> _inShape;
   late List<int> _outShape;
+  late List<int> _weightInShape;
+  late List<int> _weightOutShape;
 
   Future<void> loadModels() async {
     try {
@@ -23,18 +26,37 @@ class TFLiteService {
           .where((e) => e.isNotEmpty)
           .toList();
 
-      // Load model
+      // Load food classifier model
       _foodClassifier = await Interpreter.fromAsset('assets/ml/best_float16.tflite');
 
-      // Get shapes from model
+      // Get shapes from food classifier
       final inTensor = _foodClassifier!.getInputTensor(0);
       final outTensor = _foodClassifier!.getOutputTensor(0);
       _inShape = inTensor.shape;    // Should be [1, 640, 640, 3]
       _outShape = outTensor.shape;  // Should be [1, 7, 8400]
+      
+      // Load weight predictor model
+      _weightPredictor = await Interpreter.fromAsset('assets/ml/weight_predictor_v2.tflite');
+      
+      // Get shapes from weight predictor
+      final weightInTensor = _weightPredictor!.getInputTensor(0);
+      final weightOutTensor = _weightPredictor!.getOutputTensor(0);
+      _weightInShape = weightInTensor.shape;
+      _weightOutShape = weightOutTensor.shape;
+      
+      // Debug: Check all output tensors
+      print('DEBUG: Weight predictor output tensor count: ${_weightPredictor!.getOutputTensors().length}');
+      for (int i = 0; i < _weightPredictor!.getOutputTensors().length; i++) {
+        final tensor = _weightPredictor!.getOutputTensor(i);
+        print('DEBUG: Output tensor $i shape: ${tensor.shape}');
+      }
  
       print('Food classifier loaded successfully');
       print('Input shape: $_inShape');
       print('Output shape: $_outShape');
+      print('Weight predictor loaded successfully');
+      print('Weight input shape: $_weightInShape');
+      print('Weight output shape: $_weightOutShape');
 
     } catch (e) {
       print('Failed to load TFLite models: $e');
@@ -71,6 +93,7 @@ class TFLiteService {
           width,
           (x) {
             final pixel = resized.getPixel(x, y);
+            // RGB format for compatibility with training
             return [
               pixel.r.toDouble() / 255.0, // R
               pixel.g.toDouble() / 255.0, // G
@@ -204,9 +227,10 @@ class TFLiteService {
       
       // Only return result if confidence exceeds threshold
       if (maxIdx >= 0 && maxIdx < _labels!.length && maxScore >= CONFIDENCE_THRESHOLD) {
-        double estimatedWeight = 300.0; // Default average weight
+        // Use weight predictor to estimate weight
+        double estimatedWeight = await predictFoodWeight(imageFile);
         
-        print('Recognition successful: ${_labels![maxIdx]} with confidence $maxScore');
+        print('Recognition successful: ${_labels![maxIdx]} with confidence $maxScore, estimated weight: ${estimatedWeight.toStringAsFixed(0)}g');
         return RecognitionResult(
           foodName: _labels![maxIdx],
           confidence: maxScore,
@@ -226,5 +250,53 @@ class TFLiteService {
 
   void dispose() {
     _foodClassifier?.close();
+    _weightPredictor?.close();
+  }
+
+  // Predict estimated weight from food image
+  Future<double> predictFoodWeight(XFile imageFile) async {
+    if (_weightPredictor == null) {
+      print('Error: Weight predictor model not loaded.');
+      return 300.0; // Return default if model not loaded
+    }
+
+    try {
+      // Preprocess image for weight predictor
+      final shapedInput = _preprocessImage(File(imageFile.path));
+
+      // WORKAROUND: tflite_flutter reports wrong shape [1,1] but model returns [9,1]
+      // Allocate output array as [9, 1] based on actual model output
+      final outputArray = List.generate(
+        9, // Actual output rows (not reported shape)
+        (_) => List<double>.filled(1, 0.0)
+      );
+
+      // Run weight prediction
+      print('DEBUG: Running weight predictor...');
+      print('DEBUG: Allocated output shape: [9, 1]');
+      _weightPredictor!.run(shapedInput, outputArray);
+      print('DEBUG: Weight prediction completed.');
+      print('DEBUG: Raw output: $outputArray');
+
+      // Extract weight value from output [9, 1]
+      // Take first prediction value
+      double predictedWeight = 300.0;
+      
+      if (outputArray.isNotEmpty && outputArray[0].isNotEmpty) {
+        predictedWeight = outputArray[0][0];
+        print('DEBUG: Extracted weight from outputArray[0][0]: $predictedWeight');
+      }
+
+      // Ensure weight is in reasonable range (50-800g)
+      predictedWeight = predictedWeight.clamp(50.0, 800.0);
+      
+      print('DEBUG: Final predicted weight: ${predictedWeight.toStringAsFixed(0)}g');
+      return predictedWeight;
+
+    } catch (e, s) {
+      print('Error predicting weight: $e');
+      print('Stack trace: $s');
+      return 300.0; // Return default on error
+    }
   }
 }
