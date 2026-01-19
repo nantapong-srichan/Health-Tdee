@@ -307,8 +307,529 @@ class _HomeScreenState extends State<HomeScreen> {
         final fat = _getFatForDate(session);
         final proteinGoal = session.proteinGrams ?? 100;
         final isMuscleBuildGoal = session.goal == 'muscle_gain';
+        final isMaintainGoal = session.goal == 'maintain';
+        final isWeightGainGoal = session.goal == 'weight_gain';
+        final isWeightLossGoal = session.goal == 'weight_loss';
+        final goalCalories = session.getDailyCalorieGoal();
+        final selectedCalories = session.getCaloriesForDate(_selectedDate);
 
-        if (isMuscleBuildGoal) {
+        if (isWeightLossGoal) {
+          // Layout for weight loss goal - Focus on Calorie Deficit
+          final percent = (selectedCalories / goalCalories);
+          String deficitStatus;
+          Color deficitColor;
+          
+          if (percent < 0.7) {
+            deficitStatus = 'ต่ำเกินไป!';
+            deficitColor = Colors.red;
+          } else if (percent >= 0.5 && percent <= 1.0) {
+            deficitStatus = 'อยู่ในเป้าหมายที่ดี!';
+            deficitColor = Colors.green;
+          } else {
+            deficitStatus = 'เกินแคลอรี่แล้ว!';
+            deficitColor = Colors.orange;
+          }
+
+          return Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: deficitColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(Icons.trending_down, color: deficitColor, size: 24),
+                        ),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('แคลอรี่ส่วนขาดสำหรับลดน้ำหนัก', 
+                              style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                            Text(
+                              '${selectedCalories.toStringAsFixed(0)} / ${goalCalories.toStringAsFixed(0)} kcal',
+                              style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: LinearProgressIndicator(
+                        value: percent.clamp(0.0, 1.0),
+                        minHeight: 8,
+                        backgroundColor: Colors.grey[200],
+                        valueColor: AlwaysStoppedAnimation<Color>(deficitColor),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Center(
+                      child: Text(
+                        deficitStatus,
+                        style: theme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: deficitColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Macro cards for weight loss goal
+              Row(
+                children: [
+                  // Protein Card
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.local_dining, color: Colors.green, size: 20),
+                          ),
+                          const SizedBox(height: 8),
+                          Text('โปรตีน', style: theme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+                          Text(
+                            '${protein.toStringAsFixed(1)}g',
+                            style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Carbs Card
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.grain, color: Colors.orange, size: 20),
+                          ),
+                          const SizedBox(height: 8),
+                          Text('คาร์โบไฮเดรต', style: theme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+                          Text(
+                            '${carbs.toStringAsFixed(1)}g',
+                            style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Fat Card
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.opacity, color: Colors.red, size: 20),
+                          ),
+                          const SizedBox(height: 8),
+                          Text('ไขมัน', style: theme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+                          Text(
+                            '${fat.toStringAsFixed(1)}g',
+                            style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        } else if (isMaintainGoal) {
+          // Layout for maintain goal - Focus on Calorie Balance
+          final percent = (selectedCalories / goalCalories);
+          String balanceStatus;
+          Color balanceColor;
+          
+          if (percent < 0.9) {
+            balanceStatus = 'ต่ำกว่าเป้าหมาย';
+            balanceColor = Colors.blue;
+          } else if (percent >= 0.9 && percent <= 1.0) {
+            balanceStatus = 'สมดุลพอดี!';
+            balanceColor = Colors.green;
+          } else {
+            balanceStatus = 'สูงกว่าเป้าหมาย';
+            balanceColor = Colors.orange;
+          }
+
+          return Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: balanceColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(Icons.balance, color: balanceColor, size: 24),
+                        ),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('สมดุลแคลอรี่รักษาน้ำหนัก', 
+                              style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                            Text(
+                              '${selectedCalories.toStringAsFixed(0)} / ${goalCalories.toStringAsFixed(0)} kcal',
+                              style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: LinearProgressIndicator(
+                        value: percent.clamp(0.0, 1.0),
+                        minHeight: 8,
+                        backgroundColor: Colors.grey[200],
+                        valueColor: AlwaysStoppedAnimation<Color>(balanceColor),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Center(
+                      child: Text(
+                        balanceStatus,
+                        style: theme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: balanceColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Macro cards for maintain goal
+              Row(
+                children: [
+                  // Protein Card
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.local_dining, color: Colors.green, size: 20),
+                          ),
+                          const SizedBox(height: 8),
+                          Text('โปรตีน', style: theme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+                          Text(
+                            '${protein.toStringAsFixed(1)}g',
+                            style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Carbs Card
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.grain, color: Colors.orange, size: 20),
+                          ),
+                          const SizedBox(height: 8),
+                          Text('คาร์โบไฮเดรต', style: theme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+                          Text(
+                            '${carbs.toStringAsFixed(1)}g',
+                            style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Fat Card
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.opacity, color: Colors.red, size: 20),
+                          ),
+                          const SizedBox(height: 8),
+                          Text('ไขมัน', style: theme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+                          Text(
+                            '${fat.toStringAsFixed(1)}g',
+                            style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        } else if (isWeightGainGoal) {
+          // Layout for weight gain goal - Focus on Calorie Surplus
+          final percent = (selectedCalories / goalCalories);
+          String surplusStatus;
+          Color surplusColor;
+          
+          if (percent < 0.9) {
+            surplusStatus = 'ต่ำกว่าเป้าหมาย';
+            surplusColor = Colors.orange;
+          } else if (percent >= 0.9 && percent <= 1.1) {
+            surplusStatus = 'อยู่ในเป้าหมายที่ดี!';
+            surplusColor = Colors.green;
+          } else {
+            surplusStatus = 'เกินแคลอรี่มากเกินไป!';
+            surplusColor = Colors.red;
+          }
+
+          return Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: surplusColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(Icons.trending_up, color: surplusColor, size: 24),
+                        ),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('แคลอรี่ส่วนเกินสำหรับเพิ่มน้ำหนัก', 
+                              style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                            Text(
+                              '${selectedCalories.toStringAsFixed(0)} / ${goalCalories.toStringAsFixed(0)} kcal',
+                              style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: LinearProgressIndicator(
+                        value: (selectedCalories / goalCalories).clamp(0.0, 1.0),
+                        minHeight: 8,
+                        backgroundColor: Colors.grey[200],
+                        valueColor: AlwaysStoppedAnimation<Color>(surplusColor),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Center(
+                      child: Text(
+                        surplusStatus,
+                        style: theme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: surplusColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Macro cards for weight gain goal
+              Row(
+                children: [
+                  // Protein Card
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.local_dining, color: Colors.green, size: 20),
+                          ),
+                          const SizedBox(height: 8),
+                          Text('โปรตีน', style: theme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+                          Text(
+                            '${protein.toStringAsFixed(1)}g',
+                            style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Carbs Card
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.grain, color: Colors.orange, size: 20),
+                          ),
+                          const SizedBox(height: 8),
+                          Text('คาร์โบไฮเดรต', style: theme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+                          Text(
+                            '${carbs.toStringAsFixed(1)}g',
+                            style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Fat Card
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.opacity, color: Colors.red, size: 20),
+                          ),
+                          const SizedBox(height: 8),
+                          Text('ไขมัน', style: theme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+                          Text(
+                            '${fat.toStringAsFixed(1)}g',
+                            style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        } else if (isMuscleBuildGoal) {
           // Layout for muscle building goal
           return Column(
             children: [

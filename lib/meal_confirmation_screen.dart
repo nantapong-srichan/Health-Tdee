@@ -180,7 +180,7 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
                   'g',
                   _protein,
                   0,
-                  100,
+                  200,
                   (value) {
                     setState(() => _protein = value);
                   },
