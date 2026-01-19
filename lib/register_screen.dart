@@ -147,6 +147,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         diabetesCarbLimit = double.parse(_diabetesCarbController.text);
       }
       
+      // Register asynchronously in background
       final result = await _authService.register(
         email: _emailController.text.trim(),
         password: _passwordController.text,
@@ -214,22 +215,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
           );
 
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
-          );
+          if (mounted) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => const HomeScreen()),
+            );
+          }
+        } else {
+          if (mounted) {
+            setState(() {
+              _errorMessage = loginResult['message'] ?? 'เกิดข้อผิดพลาดในการเข้าสู่ระบบอัตโนมัติ';
+              _isLoading = false;
+            });
+          }
         }
       } else {
-        setState(() {
-          _errorMessage = result['message'] ?? 'เกิดข้อผิดพลาด';
-        });
+        if (mounted) {
+          setState(() {
+            _errorMessage = result['message'] ?? 'เกิดข้อผิดพลาด';
+            _isLoading = false;
+          });
+        }
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = 'เกิดข้อผิดพลาด: $e';
-      });
-    } finally {
       if (mounted) {
         setState(() {
+          _errorMessage = 'เกิดข้อผิดพลาด: $e';
           _isLoading = false;
         });
       }

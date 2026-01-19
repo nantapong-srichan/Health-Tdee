@@ -198,87 +198,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 // Confirm Button
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () async {
-                      // Use current edited nutrition values from state
-                      final mealService = MealService();
-                      final response = await mealService.saveMeal(
-                        foodName: widget.result.foodName,
-                        calories: _calories.toInt(),
-                        protein: _protein,
-                        carbs: _carbs,
-                        fat: _fat,
-                        fiber: 0.0,
-                        sodium: 0.0,
-                        estimatedWeight: _estimatedWeight,
-                        confidence: widget.result.confidence,
-                        mealType: 'lunch',
-                      );
-
-                      print('DEBUG RESULTS: saveMeal response: $response');
-                      
-                      if (response['success']) {
-                        // After saving to backend, reload meals from backend
-                        // This ensures the data is in sync with database timestamps
-                        final sessionData = Provider.of<SessionData>(context, listen: false);
-                        
-                        // Reload meals for today to get the newly saved meal with correct timestamp
-                        final mealService = MealService();
-                        final today = DateTime.now();
-                        final startOfDay = DateTime(today.year, today.month, today.day);
-                        final endOfDay = startOfDay.add(const Duration(days: 1)).subtract(const Duration(seconds: 1));
-                        
-                        final reloadResponse = await mealService.getMealHistory(
-                          startDate: startOfDay.toIso8601String(),
-                          endDate: endOfDay.toIso8601String(),
-                          limit: 100,
-                        );
-                        
-                        if (reloadResponse['success']) {
-                          // Clear today's meals and reload from backend
-                          sessionData.clearMealsForDate(today);
-                          final meals = reloadResponse['meals'] as List?;
-                          if (meals != null && meals.isNotEmpty) {
-                            for (var meal in meals) {
-                              sessionData.addMeal({
-                                'foodName': meal['foodName'],
-                                'calories': (meal['nutrition']?['calories'] ?? 0).toDouble(),
-                                'protein': (meal['nutrition']?['protein'] ?? 0).toDouble(),
-                                'carbs': (meal['nutrition']?['carbohydrates'] ?? 0).toDouble(),
-                                'fat': (meal['nutrition']?['fat'] ?? 0).toDouble(),
-                                'fiber': (meal['nutrition']?['fiber'] ?? 0).toDouble(),
-                                'sodium': (meal['nutrition']?['sodium'] ?? 0).toDouble(),
-                                'estimatedWeight': meal['estimatedWeight'],
-                                'confidence': meal['confidence'],
-                                'mealType': meal['mealType'] ?? 'other',
-                                'date': DateTime.parse(meal['mealTime'] as String).toString().split(' ')[0],
-                                'mealId': meal['_id'],
-                              });
-                            }
-                          }
-                        }
-                        
-                        // Show success notification
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('บันทึก${widget.result.foodName}สำเร็จ'),
-                            backgroundColor: Colors.green,
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
-                        
-                        // Navigate back to home screen
-                        Navigator.of(context).pop();
-                        Navigator.of(context).pop();
-                      } else {
-                        // Show error notification
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('เกิดข้อผิดพลาด: ${response['message']}'),
-                            backgroundColor: Colors.red,
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
-                      }
+                    onPressed: () {
+                      _handleConfirmMeal();
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFFABB5A),
@@ -365,5 +286,114 @@ class _ResultsScreenState extends State<ResultsScreen> {
         ],
       ),
     );
+  }
+
+  // Handle meal confirmation asynchronously to prevent UI freezing
+  Future<void> _handleConfirmMeal() async {
+    // Show loading indicator
+    if (!mounted) return;
+    
+    // Use current edited nutrition values from state
+    final mealService = MealService();
+    
+    try {
+      // Save meal to backend (this happens in background)
+      final response = await mealService.saveMeal(
+        foodName: widget.result.foodName,
+        calories: _calories.toInt(),
+        protein: _protein,
+        carbs: _carbs,
+        fat: _fat,
+        fiber: 0.0,
+        sodium: 0.0,
+        estimatedWeight: _estimatedWeight,
+        confidence: widget.result.confidence,
+        mealType: 'lunch',
+      );
+
+      print('DEBUG RESULTS: saveMeal response: $response');
+      
+      if (!mounted) return;
+      
+      if (response['success']) {
+        // After saving to backend, reload meals from backend
+        // This ensures the data is in sync with database timestamps
+        final sessionData = Provider.of<SessionData>(context, listen: false);
+        
+        // Reload meals for today to get the newly saved meal with correct timestamp
+        final today = DateTime.now();
+        final startOfDay = DateTime(today.year, today.month, today.day);
+        final endOfDay = startOfDay.add(const Duration(days: 1)).subtract(const Duration(seconds: 1));
+        
+        final reloadResponse = await mealService.getMealHistory(
+          startDate: startOfDay.toIso8601String(),
+          endDate: endOfDay.toIso8601String(),
+          limit: 100,
+        );
+        
+        if (!mounted) return;
+        
+        if (reloadResponse['success']) {
+          // Clear today's meals and reload from backend
+          sessionData.clearMealsForDate(today);
+          final meals = reloadResponse['meals'] as List?;
+          if (meals != null && meals.isNotEmpty) {
+            for (var meal in meals) {
+              sessionData.addMeal({
+                'foodName': meal['foodName'],
+                'calories': (meal['nutrition']?['calories'] ?? 0).toDouble(),
+                'protein': (meal['nutrition']?['protein'] ?? 0).toDouble(),
+                'carbs': (meal['nutrition']?['carbohydrates'] ?? 0).toDouble(),
+                'fat': (meal['nutrition']?['fat'] ?? 0).toDouble(),
+                'fiber': (meal['nutrition']?['fiber'] ?? 0).toDouble(),
+                'sodium': (meal['nutrition']?['sodium'] ?? 0).toDouble(),
+                'estimatedWeight': meal['estimatedWeight'],
+                'confidence': meal['confidence'],
+                'mealType': meal['mealType'] ?? 'other',
+                'date': DateTime.parse(meal['mealTime'] as String).toString().split(' ')[0],
+                'mealId': meal['_id'],
+              });
+            }
+          }
+        }
+        
+        // Show success notification
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('บันทึก${widget.result.foodName}สำเร็จ'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        
+        // Navigate back to home screen
+        if (mounted) {
+          Navigator.of(context).pop();
+          Navigator.of(context).pop();
+        }
+      } else {
+        // Show error notification
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('เกิดข้อผิดพลาด: ${response['message']}'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error in _handleConfirmMeal: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('เกิดข้อผิดพลาด: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
   }
 }

@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'get_started_screen.dart';
 import 'session_data.dart';      
-import 'package:provider/provider.dart'; 
+import 'package:provider/provider.dart';
+import 'services/notification_service.dart';
 
 
 Future<void> main() async {
   // Initialize Flutter bindings (required for secure storage and native channels)
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize notification service
+  await NotificationService().initNotifications();
   
   runApp(
     ChangeNotifierProvider(

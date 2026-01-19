@@ -50,5 +50,7 @@
 	<string>This app needs camera access to take pictures of your food for calorie tracking.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>แอปนี้ต้องการเข้าถึงคลังภาพของคุณเพื่อเลือกรูปภาพอาหาร</string>
+	<key>NSUserNotificationUsageDescription</key>
+	<string>This app needs notification permission to remind you about insulin injections.</string>
 </dict>
 </plist>

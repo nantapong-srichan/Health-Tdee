@@ -58,6 +58,15 @@ dependencies:
   # Secure storage for JWT tokens
   flutter_secure_storage: ^9.0.0
 
+  # Local notifications
+  flutter_local_notifications: ^17.0.0
+  
+  # Timezone support for notifications
+  timezone: ^0.9.4
+  
+  # Request notification permissions
+  permission_handler: ^12.0.1
+  
 dev_dependencies:
   flutter_test:
     sdk: flutter

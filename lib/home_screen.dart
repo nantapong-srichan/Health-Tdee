@@ -9,7 +9,8 @@ import 'services/api_service.dart';
 import 'session_data.dart'; 
 import 'image_picker_screen.dart';
 import 'profile_screen.dart';
-import 'meal_confirmation_screen.dart'; 
+import 'meal_confirmation_screen.dart';
+import 'insulin_reminder_screen.dart'; 
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -220,10 +221,38 @@ class _HomeScreenState extends State<HomeScreen> {
                 _buildTodayCaloriesCard(kanitTheme, sessionData.goal ?? '...'),
                 const SizedBox(height: 24),
                 // Diabetes carbs card (only for users with diabetes) - show after today calories
-                if (sessionData.hasDiabetes())
+                if (sessionData.hasDiabetes()) ...[
                   _buildDiabetesCarbsCard(kanitTheme, sessionData),
-                if (sessionData.hasDiabetes())
+                  const SizedBox(height: 16),
+                  Center(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const InsulinReminderScreen(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.notifications_active, size: 18),
+                      label: Text(
+                        'แจ้งเตือนการฉีดอินซูลิน',
+                        style: GoogleFonts.kanit(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFABB5A),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 24),
+                ],
                 // Macronutrients cards
                 _buildMacronutrientsCards(kanitTheme, sessionData),
                 const SizedBox(height: 24),
