@@ -26,6 +26,10 @@ class SessionData with ChangeNotifier {
   double? dailyCalorieNeed;
   double? proteinGrams;
 
+  // ข้อมูลโรคประจำตัวและคาร์โบไฮเดรต
+  List<String>? diseases; // ['diabetes', 'hypertension']
+  double? diabetesCarbLimit; // เป้าหมายคาร์โบไฮเดรตต่อวัน (กรัม)
+
   // ข้อมูลการรับประทานอาหาร พร้อมวันที่ (เก็บแยกตามวันที่)
   Map<String, List<Map<String, dynamic>>> mealsByDate = {}; // date (YYYY-MM-DD) -> meals list
   DateTime? selectedDate; // วันที่ที่เลือกสำหรับแสดงผล
@@ -128,6 +132,21 @@ class SessionData with ChangeNotifier {
     notifyListeners();
   }
 
+  void updateDiseases(List<String>? value) {
+    diseases = value;
+    notifyListeners();
+  }
+
+  void updateDiabetesCarbLimit(double? value) {
+    diabetesCarbLimit = value;
+    notifyListeners();
+  }
+
+  // Check if user has diabetes
+  bool hasDiabetes() {
+    return diseases?.contains('diabetes') ?? false;
+  }
+
   // ฟังก์ชันสำหรับเคลียร์ข้อมูล
   void clearData() {
     dateOfBirth = null;
@@ -144,6 +163,8 @@ class SessionData with ChangeNotifier {
     tdee = null;
     dailyCalorieNeed = null;
     proteinGrams = null;
+    diseases = null;
+    diabetesCarbLimit = null;
     notifyListeners();
   }
 

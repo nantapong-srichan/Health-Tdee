@@ -85,6 +85,18 @@ const userSchema = new mongoose.Schema(
       description: 'Target daily calories in KCal',
     },
 
+    // Health Conditions
+    diseases: {
+      type: [String],
+      default: [],
+      description: 'List of chronic diseases (e.g., diabetes, hypertension)',
+    },
+    diabetesCarbLimit: {
+      type: Number,
+      description: 'Daily carbohydrate limit in grams for diabetic users',
+      default: null,
+    },
+
     // Account Status
     isVerified: {
       type: Boolean,

@@ -26,6 +26,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadUserProfile() async {
     try {
       final profile = await _authService.getCurrentUser();
+      print('=== DEBUG: Profile loaded ===');
+      print('Full profile: $profile');
+      final userProfile = profile['user'] as Map<String, dynamic>?;
+      if (userProfile != null) {
+        print('User diseases: ${userProfile['diseases']}');
+        print('User diseases type: ${userProfile['diseases'].runtimeType}');
+        print('Diseases is empty: ${(userProfile['diseases'] as List?)?.isEmpty}');
+        print('Diabetes in diseases: ${(userProfile['diseases'] as List?)?.contains('diabetes')}');
+      }
       setState(() {
         _userProfile = profile;
       });
@@ -140,6 +149,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     'icon': Icons.health_and_safety,
                     'title': 'ข้อมูลสุขภาพ',
                     'onTap': () => _editHealthInfo(context, kanitTheme, sessionData),
+                  },
+                  {
+                    'icon': Icons.medical_information_outlined,
+                    'title': 'โรคประจำตัว',
+                    'onTap': () => _editDiseases(context, kanitTheme),
                   },
                 ]),
                 const SizedBox(height: 24),
@@ -966,4 +980,366 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
+
+  void _editDiseases(BuildContext context, TextTheme theme) {
+    if (_userProfile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ยังไม่สามารถโหลดข้อมูลได้'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final userProfile = _userProfile!['user'] as Map<String, dynamic>?;
+    if (userProfile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ไม่พบข้อมูลผู้ใช้'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return _DiseasesEditModal(
+          theme: theme,
+          userProfile: userProfile,
+          authService: _authService,
+          onProfileLoaded: _loadUserProfile,
+        );
+      },
+    );
+  }
 }
+
+// Separate stateful widget for disease editing modal
+class _DiseasesEditModal extends StatefulWidget {
+  final TextTheme theme;
+  final Map<String, dynamic> userProfile;
+  final AuthService authService;
+  final Future<void> Function() onProfileLoaded;
+
+  const _DiseasesEditModal({
+    required this.theme,
+    required this.userProfile,
+    required this.authService,
+    required this.onProfileLoaded,
+  });
+
+  @override
+  State<_DiseasesEditModal> createState() => _DiseasesEditModalState();
+}
+
+class _DiseasesEditModalState extends State<_DiseasesEditModal> {
+  late Map<String, bool> diseases;
+  late TextEditingController diabetesCarbController;
+  bool isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize state from current profile
+    print('=== DEBUG: _DiseasesEditModal initState ===');
+    print('Raw diseases from profile: ${widget.userProfile['diseases']}');
+    print('Diseases type: ${widget.userProfile['diseases']?.runtimeType}');
+    print('Diseases is list: ${widget.userProfile['diseases'] is List}');
+    
+    final diseasesList = widget.userProfile['diseases'] as List?;
+    print('Diseases list: $diseasesList');
+    print('Diseases list length: ${diseasesList?.length}');
+    print('Contains diabetes: ${diseasesList?.contains('diabetes')}');
+    
+    diseases = {
+      'diabetes': diseasesList?.contains('diabetes') ?? false,
+      'hypertension': diseasesList?.contains('hypertension') ?? false,
+    };
+    
+    print('Initialized diseases map: $diseases');
+    
+    // Convert to double in case database returns int
+    dynamic carbValue = widget.userProfile['diabetesCarbLimit'];
+    String carbText = '';
+    if (carbValue != null) {
+      double carbDouble = (carbValue is int) ? carbValue.toDouble() : (carbValue as double? ?? 0.0);
+      carbText = carbDouble.toString();
+    }
+    
+    print('Diabetes carb limit: $carbValue, text: $carbText');
+    
+    diabetesCarbController = TextEditingController(text: carbText);
+  }
+
+  @override
+  void dispose() {
+    diabetesCarbController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+        left: 20,
+        right: 20,
+        top: 20,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'โรคประจำตัว',
+              style: widget.theme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20),
+            // Diabetes Checkbox
+            CheckboxListTile(
+              value: diseases['diabetes'] ?? false,
+              onChanged: isLoading
+                  ? null
+                  : (value) {
+                      setState(() {
+                        diseases['diabetes'] = value ?? false;
+                      });
+                    },
+              activeColor: const Color(0xFFFABB5A),
+              title: Text(
+                'เบาหวาน',
+                style: widget.theme.bodyMedium,
+              ),
+              controlAffinity: ListTileControlAffinity.leading,
+              contentPadding: EdgeInsets.zero,
+            ),
+            // Carbs input if diabetes selected
+            if (diseases['diabetes'] == true) ...[
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.only(left: 40),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ปริมาณคาร์โบไฮเดรตต่อวัน (กรัม)',
+                      style: widget.theme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: diabetesCarbController,
+                      keyboardType: TextInputType.numberWithOptions(decimal: true),
+                      enabled: !isLoading,
+                      decoration: InputDecoration(
+                        hintText: 'เช่น 150 หรือ 150.5',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            // Hypertension Checkbox
+            CheckboxListTile(
+              value: diseases['hypertension'] ?? false,
+              onChanged: isLoading
+                  ? null
+                  : (value) {
+                      setState(() {
+                        diseases['hypertension'] = value ?? false;
+                      });
+                    },
+              activeColor: const Color(0xFFFABB5A),
+              title: Text(
+                'ความดันสูง',
+                style: widget.theme.bodyMedium,
+              ),
+              controlAffinity: ListTileControlAffinity.leading,
+              contentPadding: EdgeInsets.zero,
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: isLoading
+                    ? null
+                    : () async {
+                        setState(() {
+                          isLoading = true;
+                        });
+
+                        try {
+                          // Debug: print current state
+                          print('=== DEBUG: Saving diseases ===');
+                          print('Diabetes checkbox: ${diseases['diabetes']}');
+                          print('Hypertension checkbox: ${diseases['hypertension']}');
+                          print('Carb input value: ${diabetesCarbController.text}');
+                          print('Carb input type: ${diabetesCarbController.text.runtimeType}');
+
+                          // Collect selected diseases
+                          List<String> selectedDiseases = [];
+                          diseases.forEach((disease, selected) {
+                            if (selected) {
+                              selectedDiseases.add(disease);
+                            }
+                          });
+                          print('Selected diseases: $selectedDiseases');
+
+                          // Always send the list (empty if no diseases selected)
+                          print('Diseases to send: $selectedDiseases (empty array to clear)');
+
+                          // Get diabetes carbs if diabetes is selected
+                          double? diabetesCarbLimit;
+                          if (diseases['diabetes'] == true &&
+                              diabetesCarbController.text.isNotEmpty) {
+                            try {
+                              diabetesCarbLimit = double.parse(diabetesCarbController.text);
+                              print('Parsed carb limit: $diabetesCarbLimit (type: ${diabetesCarbLimit.runtimeType})');
+                            } catch (e) {
+                              print('ERROR parsing carb limit: $e');
+                              diabetesCarbLimit = null;
+                            }
+                          } else {
+                            print('Diabetes not selected or carb field empty - setting carbLimit to null');
+                            diabetesCarbLimit = null;
+                          }
+                          print('Final diabetesCarbLimit: $diabetesCarbLimit (will be null if no diabetes)');
+                          print('Sending to API - diseases: $selectedDiseases, carbLimit: $diabetesCarbLimit');
+
+                          // Debug: print current profile data
+                          print('Current profile name: ${widget.userProfile['name']}');
+                          print('Current profile age: ${widget.userProfile['age']}');
+
+                          // Update profile via API
+                          print('Calling updateProfile API...');
+                          
+                          // Ensure correct types from database
+                          int ageValue = (widget.userProfile['age'] is double) 
+                            ? (widget.userProfile['age'] as double).toInt() 
+                            : (widget.userProfile['age'] ?? 20) as int;
+                          
+                          double bmrValue = (widget.userProfile['bmr'] is int)
+                            ? (widget.userProfile['bmr'] as int).toDouble()
+                            : (widget.userProfile['bmr'] ?? 1500.0) as double;
+                          
+                          int dailyCalorieValue = (widget.userProfile['dailyCalorieNeed'] is double)
+                            ? (widget.userProfile['dailyCalorieNeed'] as double).toInt()
+                            : (widget.userProfile['dailyCalorieNeed'] ?? 2000) as int;
+                          
+                          print('Converted age: $ageValue (type: ${ageValue.runtimeType})');
+                          print('Converted bmr: $bmrValue (type: ${bmrValue.runtimeType})');
+                          print('Converted dailyCalorie: $dailyCalorieValue (type: ${dailyCalorieValue.runtimeType})');
+                          
+                          final result = await widget.authService.updateProfile(
+                            name: widget.userProfile['name'] ?? 'User',
+                            age: ageValue,
+                            weight: (widget.userProfile['weight'] ?? 70).toDouble(),
+                            height: (widget.userProfile['height'] ?? 170).toDouble(),
+                            gender: widget.userProfile['gender'] ?? 'male',
+                            bmr: bmrValue,
+                            activityLevel: widget.userProfile['activityLevel'] ?? 'moderate',
+                            goal: widget.userProfile['goal'] ?? 'maintain',
+                            dailyCalorieGoal: dailyCalorieValue,
+                            diseases: selectedDiseases,
+                            diabetesCarbLimit: diabetesCarbLimit,
+                          );
+
+                          print('API Response: $result');
+                          print('Success: ${result['success']}');
+                          print('Message: ${result['message']}');
+
+                          if (mounted) {
+                            if (result['success']) {
+                              print('Profile updated successfully');
+                              // Reload user profile
+                              await widget.onProfileLoaded();
+
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('บันทึกข้อมูลสำเร็จ'),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                                Navigator.pop(context);
+                              }
+                            } else {
+                              print('Update failed: ${result['message']}');
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content:
+                                      Text(result['message'] ?? 'เกิดข้อผิดพลาด'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        } catch (e) {
+                          print('EXCEPTION during save: $e');
+                          print('Stack trace: ${StackTrace.current}');
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('เกิดข้อผิดพลาด: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        } finally {
+                          if (mounted) {
+                            setState(() {
+                              isLoading = false;
+                            });
+                          }
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isLoading
+                      ? Colors.grey[400]
+                      : const Color(0xFFFABB5A),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: isLoading
+                    ? SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.grey[600]!,
+                          ),
+                        ),
+                      )
+                    : Text(
+                        'บันทึก',
+                        style: widget.theme.titleMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+}
+

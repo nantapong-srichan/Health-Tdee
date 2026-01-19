@@ -42,6 +42,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     'diabetes': false,
     'hypertension': false,
   };
+  
+  // Disease details
+  final _diabetesCarbController = TextEditingController();
 
   @override
   void dispose() {
@@ -53,6 +56,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _ageController.dispose();
     _weightController.dispose();
     _heightController.dispose();
+    _diabetesCarbController.dispose();
     super.dispose();
   }
 
@@ -137,6 +141,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
         }
       });
       
+      // Get diabetes carbs if diabetes is selected
+      double? diabetesCarbLimit;
+      if (_diseases['diabetes'] == true && _diabetesCarbController.text.isNotEmpty) {
+        diabetesCarbLimit = double.parse(_diabetesCarbController.text);
+      }
+      
       final result = await _authService.register(
         email: _emailController.text.trim(),
         password: _passwordController.text,
@@ -149,6 +159,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         activityLevel: _selectedExerciseFrequency,
         goal: _selectedGoal,
         dailyCalorieGoal: 2000,
+        diseases: selectedDiseases,
+        diabetesCarbLimit: diabetesCarbLimit,
       );
 
       if (result['success']) {
@@ -810,6 +822,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
   List<Widget> _buildDiseaseCheckboxes() {
     return [
       _buildDiseaseCheckbox('diabetes', 'เบาหวาน'),
+      if (_diseases['diabetes'] == true) ...[
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.only(left: 40),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'ปริมาณคาร์โบไฮเดรตต่อวัน (กรัม)',
+                style: GoogleFonts.kanit(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildTextField(
+                controller: _diabetesCarbController,
+                hintText: 'กรอกปริมาณคาร์โบไฮเดรต',
+                keyboardType: TextInputType.number,
+              ),
+            ],
+          ),
+        ),
+      ],
       _buildDiseaseCheckbox('hypertension', 'ความดันสูง'),
     ];
   }

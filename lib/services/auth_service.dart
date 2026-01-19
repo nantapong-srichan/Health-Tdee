@@ -18,6 +18,8 @@ class AuthService {
     String? goal,
     required String activityLevel,
     required int dailyCalorieGoal,
+    List<String>? diseases,
+    double? diabetesCarbLimit,
   }) async {
     try {
       final response = await _apiService.makeRequest(
@@ -35,6 +37,8 @@ class AuthService {
           if (goal != null) 'goal': goal,
           'activityLevel': activityLevel,
           'dailyCalorieGoal': dailyCalorieGoal,
+          if (diseases != null && diseases.isNotEmpty) 'diseases': diseases,
+          if (diabetesCarbLimit != null) 'diabetesCarbLimit': diabetesCarbLimit,
         },
       );
       
@@ -143,6 +147,8 @@ class AuthService {
     required String activityLevel,
     required String goal,
     required int dailyCalorieGoal,
+    List<String>? diseases,
+    double? diabetesCarbLimit,
   }) async {
     try {
       final response = await _apiService.makeRequest(
@@ -158,6 +164,8 @@ class AuthService {
           'activityLevel': activityLevel,
           'goal': goal,
           'dailyCalorieGoal': dailyCalorieGoal,
+          'diseases': diseases ?? [],
+          'diabetesCarbLimit': diabetesCarbLimit,
         },
       );
       

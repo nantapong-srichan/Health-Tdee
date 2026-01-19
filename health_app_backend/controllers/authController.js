@@ -18,7 +18,7 @@ const generateToken = (userId) => {
 // Register - Create new user
 exports.register = async (req, res, next) => {
   try {
-    const { name, email, password, gender, age, weight, height, activityLevel, goal, dailyCalorieGoal } = req.body;
+    const { name, email, password, gender, age, weight, height, activityLevel, goal, dailyCalorieGoal, diseases, diabetesCarbLimit } = req.body;
 
     // Check if user already exists
     const userExists = await User.findOne({ email });
@@ -71,6 +71,14 @@ exports.register = async (req, res, next) => {
           message: `Calculation Error: ${error.message}`,
         });
       }
+    }
+
+    // Add disease data if provided
+    if (diseases && Array.isArray(diseases) && diseases.length > 0) {
+      userData.diseases = diseases;
+    }
+    if (diabetesCarbLimit) {
+      userData.diabetesCarbLimit = diabetesCarbLimit;
     }
 
     // Create new user
@@ -209,8 +217,14 @@ exports.getCurrentUser = async (req, res, next) => {
 // Update User Profile
 exports.updateProfile = async (req, res, next) => {
   try {
-    const { name, age, weight, height, gender, bmr, activityLevel, goal, dailyCalorieGoal } =
+    const { name, age, weight, height, gender, bmr, activityLevel, goal, dailyCalorieGoal, diseases, diabetesCarbLimit } =
       req.body;
+
+    console.log('=== DEBUG: updateProfile ===');
+    console.log('Received diseases from frontend:', diseases);
+    console.log('Diseases type:', typeof diseases);
+    console.log('Is array:', Array.isArray(diseases));
+    console.log('Diseases length:', diseases?.length);
 
     const updateData = {
       updatedAt: Date.now(),
@@ -225,6 +239,18 @@ exports.updateProfile = async (req, res, next) => {
     if (activityLevel) updateData.activityLevel = activityLevel;
     if (goal) updateData.goal = goal;
     if (dailyCalorieGoal) updateData.dailyCalorieGoal = dailyCalorieGoal;
+
+    // Add disease data if provided
+    if (diseases !== undefined) {
+      // If diseases is null or empty array, set to empty array to clear diseases
+      updateData.diseases = (Array.isArray(diseases) && diseases.length > 0) ? diseases : [];
+      console.log('Setting updateData.diseases to:', updateData.diseases);
+    }
+    if (diabetesCarbLimit !== undefined) {
+      updateData.diabetesCarbLimit = diabetesCarbLimit || null;
+    }
+
+    console.log('UpdateData to apply:', JSON.stringify(updateData, null, 2));
 
     // Calculate all nutrition metrics if we have health data
     if (age && weight && height && gender) {
@@ -272,6 +298,9 @@ exports.updateProfile = async (req, res, next) => {
         message: 'User not found',
       });
     }
+
+    console.log('User after update:', JSON.stringify(user, null, 2));
+    console.log('User diseases after update:', user.diseases);
 
     res.json({
       success: true,

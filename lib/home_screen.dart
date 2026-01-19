@@ -74,6 +74,15 @@ class _HomeScreenState extends State<HomeScreen> {
           sessionData.updateHeightDouble(
               (userProfile['height'] as num).toDouble());
         }
+        if (userProfile['diseases'] != null) {
+          final diseasesList = (userProfile['diseases'] as List?)?.cast<String>() ?? [];
+          sessionData.updateDiseases(diseasesList);
+        }
+        if (userProfile['diabetesCarbLimit'] != null) {
+          final carbLimit = userProfile['diabetesCarbLimit'];
+          double carbValue = (carbLimit is int) ? carbLimit.toDouble() : (carbLimit as double? ?? 0.0);
+          sessionData.updateDiabetesCarbLimit(carbValue);
+        }
       }
     } catch (e) {
       // Handle error silently - user data refresh failure
@@ -161,6 +170,15 @@ class _HomeScreenState extends State<HomeScreen> {
     return total;
   }
 
+  double _getCarbsForDayForDate(SessionData sessionData) {
+    final meals = sessionData.getMealsForDate(_selectedDate);
+    double total = 0;
+    for (var meal in meals) {
+      total += (meal['carbs'] as num?)?.toDouble() ?? 0;
+    }
+    return total;
+  }
+
   double _getCarbsForDate(SessionData sessionData) {
     final meals = sessionData.getMealsForDate(_selectedDate);
     double total = 0;
@@ -201,6 +219,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 // ใช้ข้อมูล goal จาก sessionData มาแสดงผล
                 _buildTodayCaloriesCard(kanitTheme, sessionData.goal ?? '...'),
                 const SizedBox(height: 24),
+                // Diabetes carbs card (only for users with diabetes) - show after today calories
+                if (sessionData.hasDiabetes())
+                  _buildDiabetesCarbsCard(kanitTheme, sessionData),
+                if (sessionData.hasDiabetes())
+                  const SizedBox(height: 24),
                 // Macronutrients cards
                 _buildMacronutrientsCards(kanitTheme, sessionData),
                 const SizedBox(height: 24),
@@ -1405,6 +1428,89 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  // Card for diabetes users - show carbs target for the day
+  Widget _buildDiabetesCarbsCard(TextTheme theme, SessionData sessionData) {
+    return Consumer<SessionData>(
+      builder: (context, session, _) {
+        final currentCarbs = _getCarbsForDayForDate(session);
+        final carbTarget = session.diabetesCarbLimit ?? 150.0; // Default 150g if not set
+        final carbPercent = (currentCarbs / carbTarget).clamp(0.0, 1.5);
+        
+        // Determine status and color
+        String carbStatus;
+        Color carbColor;
+        
+        if (currentCarbs < carbTarget * 0.8) {
+          carbStatus = 'ต่ำกว่าเป้าหมาย';
+          carbColor = Colors.blue;
+        } else if (currentCarbs >= carbTarget * 0.8 && currentCarbs <= carbTarget) {
+          carbStatus = 'อยู่ในเป้าหมายที่ดี!';
+          carbColor = Colors.green;
+        } else {
+          carbStatus = 'เกินเป้าหมายแล้ว!';
+          carbColor = Colors.orange;
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.purple.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.grain, color: Colors.purple, size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('ควบคุมคาร์โบไฮเดรตสำหรับเบาหวาน',
+                        style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                      Text(
+                        '${currentCarbs.toStringAsFixed(1)} / ${carbTarget.toStringAsFixed(1)} g',
+                        style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  value: carbPercent,
+                  minHeight: 8,
+                  backgroundColor: Colors.grey[200],
+                  valueColor: AlwaysStoppedAnimation<Color>(carbColor),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Center(
+                child: Text(
+                  carbStatus,
+                  style: theme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: carbColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
