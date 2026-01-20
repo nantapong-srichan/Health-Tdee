@@ -17,20 +17,20 @@ class TFLiteService {
   late List<int> _weightOutShape;
 
   Future<void> loadModels() async {
-    print('🔄 [TFLiteService] Starting loadModels()...');
+    print('[TFLiteService] Starting loadModels()...');
     try {
       // Load labels
-      print('📂 Loading labels from assets/ml/labels.txt...');
+      print('Loading labels from assets/ml/labels.txt...');
       final labelsData = await rootBundle.loadString('assets/ml/labels.txt');
       _labels = labelsData
           .split('\n')
           .map((e) => e.trim())
           .where((e) => e.isNotEmpty)
           .toList();
-      print('✅ Labels loaded: ${_labels!.length} food types');
+      print('Labels loaded: ${_labels!.length} food types');
 
       // Load food classifier model
-      print('🧠 Loading food classifier: best_float16.tflite...');
+      print('Loading food classifier: best_float16.tflite...');
       _foodClassifier = await Interpreter.fromAsset('assets/ml/best_float16.tflite');
 
       // Get shapes from food classifier
@@ -39,12 +39,12 @@ class TFLiteService {
       _inShape = inTensor.shape;    // Should be [1, 640, 640, 3]
       _outShape = outTensor.shape;  // Should be [1, 7, 8400]
       
-      print('✅ Food classifier loaded successfully');
+      print('Food classifier loaded successfully');
       print('   Input shape: $_inShape');
       print('   Output shape: $_outShape');
       
       // Load weight predictor model with error handling
-      print('🔧 Loading weight predictor: weight_predictor_v2.tflite...');
+      print('Loading weight predictor: weight_predictor_v2.tflite...');
       try {
         _weightPredictor = await Interpreter.fromAsset('assets/ml/weight_predictor_v2.tflite');
         
@@ -61,17 +61,17 @@ class TFLiteService {
           print('DEBUG: Output tensor $i shape: ${tensor.shape}');
         }
         
-        print('✅ Weight predictor loaded successfully');
+        print('Weight predictor loaded successfully');
         print('   Weight input shape: $_weightInShape');
         print('   Weight output shape: $_weightOutShape');
       } catch (e) {
-        print('❌ WARNING: Failed to load weight predictor model: $e');
+        print('WARNING: Failed to load weight predictor model: $e');
         print('Stack trace: $e');
         _weightPredictor = null; // Set to null so we can handle it later
       }
 
     } catch (e) {
-      print('❌ CRITICAL: Failed to load TFLite models: $e');
+      print('CRITICAL: Failed to load TFLite models: $e');
     }
   }
 
@@ -308,33 +308,33 @@ class TFLiteService {
   // Predict estimated weight from food image
   Future<double> predictFoodWeight(File imageFile) async {
     if (_weightPredictor == null) {
-      print('❌ Error: Weight predictor model not loaded.');
+      print('Error: Weight predictor model not loaded.');
       return 300.0; // Return default if model not loaded
     }
 
     try {
       // Preprocess image for weight predictor (224x224)
-      print('📸 Preprocessing image for weight predictor (224x224)...');
+      print('Preprocessing image for weight predictor (224x224)...');
       final shapedInput = _preprocessImageForWeightPredictor(imageFile);
-      print('✅ Image preprocessed successfully');
+      print('Image preprocessed successfully');
 
       // Create output array - try [1, 1] first
-      print('📊 Creating output array with shape [1, 1]...');
+      print('Creating output array with shape [1, 1]...');
       List<List<double>> outputArray = [
         [0.0] // Batch 1, Output value 1
       ];
 
       // Run weight prediction
-      print('🚀 Running weight predictor inference...');
+      print('Running weight predictor inference...');
       print('   Input shape: [1, 224, 224, 3]');
       print('   Expected output shape: ${_weightOutShape}');
       
       try {
         _weightPredictor!.run(shapedInput, outputArray);
-        print('✅ Weight prediction inference completed successfully');
+        print('Weight prediction inference completed successfully');
       } catch (e) {
         // If [1,1] fails, try allocating as reported shape
-        print('⚠️  [1,1] allocation failed, trying reported shape: ${_weightOutShape}');
+        print('[1,1] allocation failed, trying reported shape: ${_weightOutShape}');
         
         if (_weightOutShape.length == 2) {
           outputArray = List.generate(
@@ -342,36 +342,36 @@ class TFLiteService {
             (_) => List<double>.filled(_weightOutShape[1], 0.0)
           );
           _weightPredictor!.run(shapedInput, outputArray);
-          print('✅ Using reported shape ${_weightOutShape} succeeded');
+          print('Using reported shape ${_weightOutShape} succeeded');
         } else {
           throw Exception('Cannot allocate output with shape ${_weightOutShape}');
         }
       }
 
-      print('📋 Raw output: $outputArray');
+      print('Raw output: $outputArray');
 
       // Extract weight value
       double predictedWeight = 300.0;
       
       if (outputArray.isNotEmpty && outputArray[0].isNotEmpty) {
         predictedWeight = outputArray[0][0];
-        print('🎯 Extracted weight: $predictedWeight grams');
+        print('Extracted weight: $predictedWeight grams');
       } else {
-        print('❌ Output array is empty!');
+        print('Output array is empty!');
       }
 
       // Validate and clamp weight
       if (predictedWeight <= 0 || predictedWeight.isNaN) {
-        print('⚠️  Invalid weight value: $predictedWeight, using default 300g');
+        print('Invalid weight value: $predictedWeight, using default 300g');
         predictedWeight = 300.0;
       }
       predictedWeight = predictedWeight.clamp(50.0, 800.0);
       
-      print('✅ Final predicted weight: ${predictedWeight.toStringAsFixed(1)}g');
+      print('Final predicted weight: ${predictedWeight.toStringAsFixed(1)}g');
       return predictedWeight;
 
     } catch (e, s) {
-      print('❌ Error predicting weight: $e');
+      print('Error predicting weight: $e');
       print('   Stack trace: $s');
       return 300.0; // Return default on error
     }

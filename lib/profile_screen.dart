@@ -682,43 +682,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
                     ),
                     const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border.all(color: Colors.grey[300]!),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: DropdownButton<String>(
-                        value: _selectedGoal,
-                        isExpanded: true,
-                        underline: const SizedBox.shrink(),
-                        items: [
-                          DropdownMenuItem(
-                            value: 'weight_loss',
-                            child: Text('ลดน้ำหนัก', style: theme.bodyMedium),
+                    StatefulBuilder(
+                      builder: (context, setState) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            border: Border.all(color: Colors.grey[300]!),
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          DropdownMenuItem(
-                            value: 'weight_gain',
-                            child: Text('เพิ่มน้ำหนัก', style: theme.bodyMedium),
+                          child: DropdownButton<String>(
+                            value: _selectedGoal,
+                            isExpanded: true,
+                            underline: const SizedBox.shrink(),
+                            items: [
+                              DropdownMenuItem(
+                                value: 'weight_loss',
+                                child: Text('ลดน้ำหนัก', style: theme.bodyMedium),
+                              ),
+                              DropdownMenuItem(
+                                value: 'weight_gain',
+                                child: Text('เพิ่มน้ำหนัก', style: theme.bodyMedium),
+                              ),
+                              DropdownMenuItem(
+                                value: 'maintain',
+                                child: Text('รักษาน้ำหนัก', style: theme.bodyMedium),
+                              ),
+                              DropdownMenuItem(
+                                value: 'muscle_gain',
+                                child: Text('เพิ่มกล้ามเนื้อ', style: theme.bodyMedium),
+                              ),
+                            ],
+                            onChanged: _isLoading
+                                ? null
+                                : (value) {
+                                    setState(() {
+                                      _selectedGoal = value ?? 'maintain';
+                                    });
+                                  },
                           ),
-                          DropdownMenuItem(
-                            value: 'maintain',
-                            child: Text('รักษาน้ำหนัก', style: theme.bodyMedium),
-                          ),
-                          DropdownMenuItem(
-                            value: 'muscle_gain',
-                            child: Text('เพิ่มกล้ามเนื้อ', style: theme.bodyMedium),
-                          ),
-                        ],
-                        onChanged: _isLoading
-                            ? null
-                            : (value) {
-                                setState(() {
-                                  _selectedGoal = value ?? 'maintain';
-                                });
-                              },
-                      ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 24),
                     SizedBox(
@@ -727,9 +731,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         onPressed: _isLoading
                             ? null
                             : () async {
+                                print('=== DEBUG: Save button pressed ===');
+                                print('Age: ${ageController.text}');
+                                print('Weight: ${weightController.text}');
+                                print('Height: ${heightController.text}');
+                                print('Gender: $_selectedGender');
+                                print('Activity: $_selectedActivityLevel');
+                                print('Goal: $_selectedGoal');
+                                print('_isLoading: $_isLoading');
+
                                 if (weightController.text.isEmpty ||
                                     heightController.text.isEmpty ||
                                     ageController.text.isEmpty) {
+                                  print('ERROR: Some fields are empty');
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
                                       content: Text('กรุณากรอกข้อมูลให้ครบถ้วน'),
@@ -742,11 +756,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 setState(() {
                                   _isLoading = true;
                                 });
+                                print('Set _isLoading to true');
 
                                 try {
                                   final age = int.parse(ageController.text);
                                   final weight = double.parse(weightController.text);
                                   final height = double.parse(heightController.text);
+
+                                  print('Parsed: age=$age, weight=$weight, height=$height');
 
                                   // Calculate BMR
                                   final bmr = BMRCalculator.calculate(
@@ -756,7 +773,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     age: age,
                                   );
 
+                                  print('Calculated BMR: $bmr');
+
                                   // Update profile via API
+                                  print('Calling updateProfile API...');
                                   final result = await _authService.updateProfile(
                                     name: userProfile['name'] ?? 'User',
                                     age: age,
@@ -767,10 +787,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     activityLevel: _selectedActivityLevel,
                                     goal: _selectedGoal,
                                     dailyCalorieGoal: 2000,
+                                    diseases: (userProfile['diseases'] as List?)?.cast<String>() ?? [],
+                                    diabetesCarbLimit: (userProfile['diabetesCarbLimit'] as num?)?.toDouble(),
                                   );
+
+                                  print('API Response: $result');
+                                  print('Success: ${result['success']}');
 
                                   if (mounted) {
                                     if (result['success']) {
+                                      print('Profile updated successfully');
                                       // Update SessionData
                                       sessionData.updateWeightDouble(weight);
                                       sessionData.updateHeightDouble(height);
@@ -792,6 +818,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         Navigator.pop(context);
                                       }
                                     } else {
+                                      print('Update failed: ${result['message']}');
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         SnackBar(
                                           content: Text(result['message'] ?? 'เกิดข้อผิดพลาด'),
@@ -801,6 +828,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     }
                                   }
                                 } catch (e) {
+                                  print('ERROR: $e');
+                                  print('Stack trace: ${StackTrace.current}');
                                   if (mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
@@ -814,6 +843,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     setState(() {
                                       _isLoading = false;
                                     });
+                                    print('Set _isLoading to false');
                                   }
                                 }
                               },

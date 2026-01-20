@@ -532,6 +532,7 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
           'protein': _protein,
           'carbs': _carbs,
           'fat': _fat,
+          'estimatedWeight': _estimatedWeight,
         });
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -551,6 +552,7 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
           'protein': _protein,
           'carbs': _carbs,
           'fat': _fat,
+          'estimatedWeight': _estimatedWeight,
         });
         return;
       }
@@ -602,6 +604,7 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
           'protein': _protein,
           'carbs': _carbs,
           'fat': _fat,
+          'estimatedWeight': _estimatedWeight,
         });
       } else {
         ScaffoldMessenger.of(context).showSnackBar(

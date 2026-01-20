@@ -155,13 +155,14 @@ class _ResultsScreenState extends State<ResultsScreen> {
                         MaterialPageRoute(
                           builder: (context) => MealConfirmationScreen(
                             foodName: widget.result.foodName,
-                            imagePath: 'assets/food1.png',
+                            imagePath: widget.imageFile.path,
                             nutritionValues: {
                               'calories': _calories,
                               'protein': _protein,
                               'carbs': _carbs,
                               'fat': _fat,
                             },
+                            estimatedWeight: _estimatedWeight,
                             fromResultsScreen: true,
                           ),
                         ),
@@ -174,6 +175,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                           _protein = result['protein'] ?? _protein;
                           _carbs = result['carbs'] ?? _carbs;
                           _fat = result['fat'] ?? _fat;
+                          _estimatedWeight = result['estimatedWeight'] ?? _estimatedWeight;
                         });
                       }
                     },

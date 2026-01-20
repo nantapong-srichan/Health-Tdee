@@ -322,7 +322,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final activityLevelController = TextEditingController(
       text: _userProfile?['activityLevel']?.toString() ?? 'moderate',
     );
-    String? selectedGender = _userProfile?['gender'];
+    // ตั้ง default gender และ goal เพื่อให้ dropdown มีค่าตั้งแต่ต้น
+    String? selectedGender = _userProfile?['gender'] ?? 'male';
     String? selectedGoal = _userProfile?['goal'] ?? 'maintain';
 
     showDialog(
@@ -464,6 +465,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 // Validate inputs
                 if (nameController.text.isEmpty ||
                     selectedGender == null ||
+                    selectedGoal == null ||
                     ageController.text.isEmpty ||
                     weightController.text.isEmpty ||
                     heightController.text.isEmpty) {

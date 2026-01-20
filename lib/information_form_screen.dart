@@ -238,8 +238,7 @@ class _InformationFormScreenState extends State<InformationFormScreen> {
                   text: 'ชาย',
                   isSelected: sessionData.gender == 'ชาย',
                   onTap: () {
-                    String? newValue = (sessionData.gender == 'ชาย') ? null : 'ชาย';
-                    sessionData.updateGender(newValue);
+                    sessionData.updateGender('ชาย');
                   },
                 ),
               ),
@@ -249,8 +248,7 @@ class _InformationFormScreenState extends State<InformationFormScreen> {
                   text: 'หญิง',
                   isSelected: sessionData.gender == 'หญิง',
                   onTap: () {
-                    String? newValue = (sessionData.gender == 'หญิง') ? null : 'หญิง';
-                    sessionData.updateGender(newValue);
+                    sessionData.updateGender('หญิง');
                   },
                 ),
               ),
@@ -276,8 +274,8 @@ class _InformationFormScreenState extends State<InformationFormScreen> {
               text: option,
               isSelected: isSelected,
               onTap: () {
-                String? newValue = isSelected ? null : option;
-                onSelected(newValue);
+                // กดแล้วต้องเลือกค่าตัวเลือกนั้น (ไม่ toggle เป็น null)
+                onSelected(option);
               }, 
             );
           }).toList(),

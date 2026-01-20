@@ -223,34 +223,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 // Diabetes carbs card (only for users with diabetes) - show after today calories
                 if (sessionData.hasDiabetes()) ...[
                   _buildDiabetesCarbsCard(kanitTheme, sessionData),
-                  const SizedBox(height: 16),
-                  Center(
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const InsulinReminderScreen(),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.notifications_active, size: 18),
-                      label: Text(
-                        'แจ้งเตือนการฉีดอินซูลิน',
-                        style: GoogleFonts.kanit(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFABB5A),
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
-                  ),
                   const SizedBox(height: 24),
                 ],
                 // Macronutrients cards
@@ -1473,14 +1445,17 @@ class _HomeScreenState extends State<HomeScreen> {
         Color carbColor;
         
         if (currentCarbs < carbTarget * 0.8) {
-          carbStatus = 'ต่ำกว่าเป้าหมาย';
-          carbColor = Colors.blue;
-        } else if (currentCarbs >= carbTarget * 0.8 && currentCarbs <= carbTarget) {
-          carbStatus = 'อยู่ในเป้าหมายที่ดี!';
+          carbStatus = 'ปลอดภัย - คาร์บต่ำ';
           carbColor = Colors.green;
-        } else {
-          carbStatus = 'เกินเป้าหมายแล้ว!';
+        } else if (currentCarbs >= carbTarget * 0.8 && currentCarbs <= carbTarget) {
+          carbStatus = 'ควบคุมได้ดี - อยู่ในเป้าหมาย';
+          carbColor = Colors.green;
+        } else if (currentCarbs > carbTarget && currentCarbs <= carbTarget * 1.2) {
+          carbStatus = 'เกินเป้าหมาย - ระวัง!';
           carbColor = Colors.orange;
+        } else {
+          carbStatus = 'อันตราย! - อาจมีผลเสียต่อระดับน้ำตาลในเลือด';
+          carbColor = Colors.red;
         }
 
         return Container(
@@ -1533,6 +1508,36 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: theme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: carbColor,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Insulin Reminder Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const InsulinReminderScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.notifications_active, size: 18),
+                  label: Text(
+                    'แจ้งเตือนการฉีดอินซูลิน',
+                    style: GoogleFonts.kanit(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFABB5A),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                 ),
               ),
