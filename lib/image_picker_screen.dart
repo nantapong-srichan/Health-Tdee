@@ -25,7 +25,10 @@ class _ImagePickerScreenState extends State<ImagePickerScreen> {
   @override
   void initState() {
     super.initState();
+    print('🚀 [ImagePickerScreen] initState called');
+    print('🔄 Calling _tfliteService.loadModels()...');
     _tfliteService.loadModels();
+    print('✅ loadModels() call completed (async)');
   }
 
   @override

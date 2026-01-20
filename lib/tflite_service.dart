@@ -17,16 +17,20 @@ class TFLiteService {
   late List<int> _weightOutShape;
 
   Future<void> loadModels() async {
+    print('🔄 [TFLiteService] Starting loadModels()...');
     try {
       // Load labels
+      print('📂 Loading labels from assets/ml/labels.txt...');
       final labelsData = await rootBundle.loadString('assets/ml/labels.txt');
       _labels = labelsData
           .split('\n')
           .map((e) => e.trim())
           .where((e) => e.isNotEmpty)
           .toList();
+      print('✅ Labels loaded: ${_labels!.length} food types');
 
       // Load food classifier model
+      print('🧠 Loading food classifier: best_float16.tflite...');
       _foodClassifier = await Interpreter.fromAsset('assets/ml/best_float16.tflite');
 
       // Get shapes from food classifier
@@ -35,36 +39,44 @@ class TFLiteService {
       _inShape = inTensor.shape;    // Should be [1, 640, 640, 3]
       _outShape = outTensor.shape;  // Should be [1, 7, 8400]
       
-      // Load weight predictor model
-      _weightPredictor = await Interpreter.fromAsset('assets/ml/weight_predictor_v2.tflite');
+      print('✅ Food classifier loaded successfully');
+      print('   Input shape: $_inShape');
+      print('   Output shape: $_outShape');
       
-      // Get shapes from weight predictor
-      final weightInTensor = _weightPredictor!.getInputTensor(0);
-      final weightOutTensor = _weightPredictor!.getOutputTensor(0);
-      _weightInShape = weightInTensor.shape;
-      _weightOutShape = weightOutTensor.shape;
-      
-      // Debug: Check all output tensors
-      print('DEBUG: Weight predictor output tensor count: ${_weightPredictor!.getOutputTensors().length}');
-      for (int i = 0; i < _weightPredictor!.getOutputTensors().length; i++) {
-        final tensor = _weightPredictor!.getOutputTensor(i);
-        print('DEBUG: Output tensor $i shape: ${tensor.shape}');
+      // Load weight predictor model with error handling
+      print('🔧 Loading weight predictor: weight_predictor_v2.tflite...');
+      try {
+        _weightPredictor = await Interpreter.fromAsset('assets/ml/weight_predictor_v2.tflite');
+        
+        // Get shapes from weight predictor
+        final weightInTensor = _weightPredictor!.getInputTensor(0);
+        final weightOutTensor = _weightPredictor!.getOutputTensor(0);
+        _weightInShape = weightInTensor.shape;
+        _weightOutShape = weightOutTensor.shape;
+        
+        // Debug: Check all output tensors
+        print('DEBUG: Weight predictor output tensor count: ${_weightPredictor!.getOutputTensors().length}');
+        for (int i = 0; i < _weightPredictor!.getOutputTensors().length; i++) {
+          final tensor = _weightPredictor!.getOutputTensor(i);
+          print('DEBUG: Output tensor $i shape: ${tensor.shape}');
+        }
+        
+        print('✅ Weight predictor loaded successfully');
+        print('   Weight input shape: $_weightInShape');
+        print('   Weight output shape: $_weightOutShape');
+      } catch (e) {
+        print('❌ WARNING: Failed to load weight predictor model: $e');
+        print('Stack trace: $e');
+        _weightPredictor = null; // Set to null so we can handle it later
       }
- 
-      print('Food classifier loaded successfully');
-      print('Input shape: $_inShape');
-      print('Output shape: $_outShape');
-      print('Weight predictor loaded successfully');
-      print('Weight input shape: $_weightInShape');
-      print('Weight output shape: $_weightOutShape');
 
     } catch (e) {
-      print('Failed to load TFLite models: $e');
+      print('❌ CRITICAL: Failed to load TFLite models: $e');
     }
   }
 
-  // Preprocess image and return it as a 4D List for the interpreter.
-  List<List<List<List<double>>>> _preprocessImage(File imageFile) {
+  // Preprocess image for YOLO (640x640)
+  List<List<List<List<double>>>> _preprocessImageForYOLO(File imageFile) {
     // 1. Read and Decode image
     final bytes = imageFile.readAsBytesSync();
     final img.Image? decoded = img.decodeImage(bytes);
@@ -72,11 +84,10 @@ class TFLiteService {
       throw Exception('Failed to decode image');
     }
 
-    // 2. Get dimensions from the model's input shape
-    final int height = _inShape[1]; // 640
-    final int width = _inShape[2]; // 640
+    // 2. Resize to 640x640 for YOLO
+    final int height = 640;
+    final int width = 640;
     
-    // 3. Resize image to match model input size with simple scaling
     final img.Image resized = img.copyResize(
       decoded,
       width: width,
@@ -84,7 +95,7 @@ class TFLiteService {
       interpolation: img.Interpolation.nearest
     );
     
-    // 4. Reshape the flat list of pixels into a 4D list [1, H, W, C] and normalize
+    // 3. Normalize to [0,1] range and reshape to [1, 640, 640, 3]
     var shapedInput = List.generate(
       1, // Batch size
       (_) => List.generate(
@@ -93,7 +104,48 @@ class TFLiteService {
           width,
           (x) {
             final pixel = resized.getPixel(x, y);
-            // RGB format for compatibility with training
+            return [
+              pixel.r.toDouble() / 255.0, // R
+              pixel.g.toDouble() / 255.0, // G
+              pixel.b.toDouble() / 255.0, // B
+            ];
+          },
+        ),
+      ),
+    );
+
+    return shapedInput;
+  }
+
+  // Preprocess image for Weight Predictor (224x224)
+  List<List<List<List<double>>>> _preprocessImageForWeightPredictor(File imageFile) {
+    // 1. Read and Decode image
+    final bytes = imageFile.readAsBytesSync();
+    final img.Image? decoded = img.decodeImage(bytes);
+    if (decoded == null) {
+      throw Exception('Failed to decode image');
+    }
+
+    // 2. Resize to 224x224 for CNN Weight Predictor
+    final int height = 224;
+    final int width = 224;
+    
+    final img.Image resized = img.copyResize(
+      decoded,
+      width: width,
+      height: height,
+      interpolation: img.Interpolation.linear
+    );
+    
+    // 3. Normalize to [0,1] range and reshape to [1, 224, 224, 3]
+    var shapedInput = List.generate(
+      1, // Batch size
+      (_) => List.generate(
+        height,
+        (y) => List.generate(
+          width,
+          (x) {
+            final pixel = resized.getPixel(x, y);
             return [
               pixel.r.toDouble() / 255.0, // R
               pixel.g.toDouble() / 255.0, // G
@@ -158,8 +210,8 @@ class TFLiteService {
     }
     
     try {
-      // 1. Preprocess the image and get the 4D input list
-      final shapedInput = _preprocessImage(File(imageFile.path));
+      // 1. Preprocess the image for YOLO (640x640)
+      final shapedInput = _preprocessImageForYOLO(File(imageFile.path));
 
       // 2. Prepare the output tensor structure correctly for Dart
       // This creates a nested list with shape [1, 7, 8400]
@@ -172,9 +224,9 @@ class TFLiteService {
       );
 
       // 3. Run inference
-      print('Running interpreter...');
+      print('Running YOLO interpreter...');
       _foodClassifier!.run(shapedInput, outputArray);
-      print('Interpreter run completed.');
+      print('YOLO inference completed.');
       
       // 4. Post-process the YOLOv8 Output
       if (_labels!.isEmpty) {
@@ -228,7 +280,7 @@ class TFLiteService {
       // Only return result if confidence exceeds threshold
       if (maxIdx >= 0 && maxIdx < _labels!.length && maxScore >= CONFIDENCE_THRESHOLD) {
         // Use weight predictor to estimate weight
-        double estimatedWeight = await predictFoodWeight(imageFile);
+        double estimatedWeight = await predictFoodWeight(File(imageFile.path));
         
         print('Recognition successful: ${_labels![maxIdx]} with confidence $maxScore, estimated weight: ${estimatedWeight.toStringAsFixed(0)}g');
         return RecognitionResult(
@@ -254,48 +306,73 @@ class TFLiteService {
   }
 
   // Predict estimated weight from food image
-  Future<double> predictFoodWeight(XFile imageFile) async {
+  Future<double> predictFoodWeight(File imageFile) async {
     if (_weightPredictor == null) {
-      print('Error: Weight predictor model not loaded.');
+      print('❌ Error: Weight predictor model not loaded.');
       return 300.0; // Return default if model not loaded
     }
 
     try {
-      // Preprocess image for weight predictor
-      final shapedInput = _preprocessImage(File(imageFile.path));
+      // Preprocess image for weight predictor (224x224)
+      print('📸 Preprocessing image for weight predictor (224x224)...');
+      final shapedInput = _preprocessImageForWeightPredictor(imageFile);
+      print('✅ Image preprocessed successfully');
 
-      // WORKAROUND: tflite_flutter reports wrong shape [1,1] but model returns [9,1]
-      // Allocate output array as [9, 1] based on actual model output
-      final outputArray = List.generate(
-        9, // Actual output rows (not reported shape)
-        (_) => List<double>.filled(1, 0.0)
-      );
+      // Create output array - try [1, 1] first
+      print('📊 Creating output array with shape [1, 1]...');
+      List<List<double>> outputArray = [
+        [0.0] // Batch 1, Output value 1
+      ];
 
       // Run weight prediction
-      print('DEBUG: Running weight predictor...');
-      print('DEBUG: Allocated output shape: [9, 1]');
-      _weightPredictor!.run(shapedInput, outputArray);
-      print('DEBUG: Weight prediction completed.');
-      print('DEBUG: Raw output: $outputArray');
+      print('🚀 Running weight predictor inference...');
+      print('   Input shape: [1, 224, 224, 3]');
+      print('   Expected output shape: ${_weightOutShape}');
+      
+      try {
+        _weightPredictor!.run(shapedInput, outputArray);
+        print('✅ Weight prediction inference completed successfully');
+      } catch (e) {
+        // If [1,1] fails, try allocating as reported shape
+        print('⚠️  [1,1] allocation failed, trying reported shape: ${_weightOutShape}');
+        
+        if (_weightOutShape.length == 2) {
+          outputArray = List.generate(
+            _weightOutShape[0],
+            (_) => List<double>.filled(_weightOutShape[1], 0.0)
+          );
+          _weightPredictor!.run(shapedInput, outputArray);
+          print('✅ Using reported shape ${_weightOutShape} succeeded');
+        } else {
+          throw Exception('Cannot allocate output with shape ${_weightOutShape}');
+        }
+      }
 
-      // Extract weight value from output [9, 1]
-      // Take first prediction value
+      print('📋 Raw output: $outputArray');
+
+      // Extract weight value
       double predictedWeight = 300.0;
       
       if (outputArray.isNotEmpty && outputArray[0].isNotEmpty) {
         predictedWeight = outputArray[0][0];
-        print('DEBUG: Extracted weight from outputArray[0][0]: $predictedWeight');
+        print('🎯 Extracted weight: $predictedWeight grams');
+      } else {
+        print('❌ Output array is empty!');
       }
 
-      // Ensure weight is in reasonable range (50-800g)
+      // Validate and clamp weight
+      if (predictedWeight <= 0 || predictedWeight.isNaN) {
+        print('⚠️  Invalid weight value: $predictedWeight, using default 300g');
+        predictedWeight = 300.0;
+      }
       predictedWeight = predictedWeight.clamp(50.0, 800.0);
       
-      print('DEBUG: Final predicted weight: ${predictedWeight.toStringAsFixed(0)}g');
+      print('✅ Final predicted weight: ${predictedWeight.toStringAsFixed(1)}g');
       return predictedWeight;
 
     } catch (e, s) {
-      print('Error predicting weight: $e');
-      print('Stack trace: $s');
+      print('❌ Error predicting weight: $e');
+      print('   Stack trace: $s');
       return 300.0; // Return default on error
     }
   }
