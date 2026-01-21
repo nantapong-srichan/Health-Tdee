@@ -76,20 +76,13 @@ class TFLiteService {
   }
 
   // Preprocess image for YOLO (640x640)
-  List<List<List<List<double>>>> _preprocessImageForYOLO(File imageFile) {
-    // 1. Read and Decode image
-    final bytes = imageFile.readAsBytesSync();
-    final img.Image? decoded = img.decodeImage(bytes);
-    if (decoded == null) {
-      throw Exception('Failed to decode image');
-    }
-
-    // 2. Resize to 640x640 for YOLO
+  List<List<List<List<double>>>> _preprocessImageForYOLO(img.Image imageData) {
+    // 1. Image already decoded, resize to 640x640 for YOLO
     final int height = 640;
     final int width = 640;
     
     final img.Image resized = img.copyResize(
-      decoded,
+      imageData,
       width: width,
       height: height,
       interpolation: img.Interpolation.nearest
@@ -118,20 +111,13 @@ class TFLiteService {
   }
 
   // Preprocess image for Weight Predictor (224x224)
-  List<List<List<List<double>>>> _preprocessImageForWeightPredictor(File imageFile) {
-    // 1. Read and Decode image
-    final bytes = imageFile.readAsBytesSync();
-    final img.Image? decoded = img.decodeImage(bytes);
-    if (decoded == null) {
-      throw Exception('Failed to decode image');
-    }
-
-    // 2. Resize to 224x224 for CNN Weight Predictor
+  List<List<List<List<double>>>> _preprocessImageForWeightPredictor(img.Image imageData) {
+    // 1. Image already decoded, resize to 224x224 for CNN Weight Predictor
     final int height = 224;
     final int width = 224;
     
     final img.Image resized = img.copyResize(
-      decoded,
+      imageData,
       width: width,
       height: height,
       interpolation: img.Interpolation.linear
@@ -157,6 +143,101 @@ class TFLiteService {
     );
 
     return shapedInput;
+  }
+
+  // Helper function to extract bounding box from YOLO detection output
+  Map<String, dynamic>? _extractBoundingBoxFromYOLO(
+    List<List<List<double>>> outputArray,
+    int detectedClassIndex,
+    int originalImageWidth,
+    int originalImageHeight,
+  ) {
+    try {
+      // YOLO output format: [1, 7, 8400]
+      // outputArray[0][0-3][box_idx] = x, y, w, h (normalized to 640x640)
+      // outputArray[0][4+class][box_idx] = confidence score for each class
+      
+      final int numBoxes = outputArray[0][0].length; // 8400
+      var maxConfidence = -double.infinity;
+      int maxBoxIdx = -1;
+      
+      // Find the box with highest confidence for the detected class
+      for (int i = 0; i < numBoxes; i++) {
+        final confidence = outputArray[0][4 + detectedClassIndex][i];
+        if (confidence > maxConfidence) {
+          maxConfidence = confidence;
+          maxBoxIdx = i;
+        }
+      }
+      
+      if (maxBoxIdx == -1) return null;
+      
+      // Extract box coordinates from YOLO output
+      final double xCenter = outputArray[0][0][maxBoxIdx]; // normalized [0, 1]
+      final double yCenter = outputArray[0][1][maxBoxIdx]; // normalized [0, 1]
+      final double boxWidth = outputArray[0][2][maxBoxIdx];  // normalized [0, 1]
+      final double boxHeight = outputArray[0][3][maxBoxIdx]; // normalized [0, 1]
+      
+      // Convert from normalized coordinates to pixel coordinates
+      // YOLO operates on 640x640 internally
+      final double x1 = ((xCenter - boxWidth / 2) * originalImageWidth).clamp(0.0, originalImageWidth.toDouble());
+      final double y1 = ((yCenter - boxHeight / 2) * originalImageHeight).clamp(0.0, originalImageHeight.toDouble());
+      final double x2 = ((xCenter + boxWidth / 2) * originalImageWidth).clamp(0.0, originalImageWidth.toDouble());
+      final double y2 = ((yCenter + boxHeight / 2) * originalImageHeight).clamp(0.0, originalImageHeight.toDouble());
+      
+      return {
+        'x1': x1.toInt(),
+        'y1': y1.toInt(),
+        'x2': x2.toInt(),
+        'y2': y2.toInt(),
+        'confidence': maxConfidence,
+      };
+    } catch (e) {
+      print('Error extracting bounding box: $e');
+      return null;
+    }
+  }
+
+  // Helper function to crop image based on bounding box
+  img.Image? _cropImageByBoundingBox(
+    img.Image originalImage,
+    int x1,
+    int y1,
+    int x2,
+    int y2,
+  ) {
+    try {
+      final width = (x2 - x1).abs();
+      final height = (y2 - y1).abs();
+      
+      // Add 10% padding around the detection
+      final paddingX = (width * 0.1).toInt();
+      final paddingY = (height * 0.1).toInt();
+      
+      final cropX1 = (x1 - paddingX).clamp(0, originalImage.width);
+      final cropY1 = (y1 - paddingY).clamp(0, originalImage.height);
+      final cropX2 = (x2 + paddingX).clamp(0, originalImage.width);
+      final cropY2 = (y2 + paddingY).clamp(0, originalImage.height);
+      
+      final cropWidth = cropX2 - cropX1;
+      final cropHeight = cropY2 - cropY1;
+      
+      if (cropWidth <= 0 || cropHeight <= 0) {
+        print('Invalid crop dimensions: $cropWidth x $cropHeight');
+        return null;
+      }
+      
+      return img.copyCrop(
+        originalImage,
+        x: cropX1,
+        y: cropY1,
+        width: cropWidth,
+        height: cropHeight,
+      );
+    } catch (e) {
+      print('Error cropping image: $e');
+      return null;
+    }
   }
 
   // Helper function to resize image while maintaining aspect ratio
@@ -202,7 +283,7 @@ class TFLiteService {
     return padded;
   }
 
-  // Final, simplified version of the recognition function
+  // Final, optimized version of the recognition function
   Future<RecognitionResult?> runFoodRecognition(XFile imageFile) async {
     if (_foodClassifier == null || _labels == null) {
       print('Error: Model or labels not loaded.');
@@ -210,10 +291,24 @@ class TFLiteService {
     }
     
     try {
-      // 1. Preprocess the image for YOLO (640x640)
-      final shapedInput = _preprocessImageForYOLO(File(imageFile.path));
+      print('[TFLiteService.runFoodRecognition] Starting food recognition...');
+      
+      // 1. Decode image ONCE - store as img.Image
+      print('Decoding image file...');
+      final bytes = File(imageFile.path).readAsBytesSync();
+      final img.Image? decodedImage = img.decodeImage(bytes);
+      if (decodedImage == null) {
+        throw Exception('Failed to decode image');
+      }
+      print('Image decoded successfully: ${decodedImage.width}x${decodedImage.height}');
+      final int originalImageWidth = decodedImage.width;
+      final int originalImageHeight = decodedImage.height;
 
-      // 2. Prepare the output tensor structure correctly for Dart
+      // 2. Preprocess the decoded image for YOLO (640x640)
+      print('Preprocessing image for YOLO (640x640)...');
+      final shapedInput = _preprocessImageForYOLO(decodedImage);
+
+      // 3. Prepare the output tensor structure correctly for Dart
       // This creates a nested list with shape [1, 7, 8400]
       var outputArray = List.generate(
           _outShape[0], // 1
@@ -223,12 +318,12 @@ class TFLiteService {
           )
       );
 
-      // 3. Run inference
+      // 4. Run YOLO inference
       print('Running YOLO interpreter...');
       _foodClassifier!.run(shapedInput, outputArray);
       print('YOLO inference completed.');
       
-      // 4. Post-process the YOLOv8 Output
+      // 5. Post-process the YOLOv8 Output
       if (_labels!.isEmpty) {
         throw StateError('Labels are not loaded');
       }
@@ -279,8 +374,43 @@ class TFLiteService {
       
       // Only return result if confidence exceeds threshold
       if (maxIdx >= 0 && maxIdx < _labels!.length && maxScore >= CONFIDENCE_THRESHOLD) {
-        // Use weight predictor to estimate weight
-        double estimatedWeight = await predictFoodWeight(File(imageFile.path));
+        // 6. Extract bounding box from YOLO output
+        print('Extracting bounding box from YOLO detection...');
+        final boundingBox = _extractBoundingBoxFromYOLO(
+          outputArray,
+          maxIdx,
+          originalImageWidth,
+          originalImageHeight,
+        );
+        
+        if (boundingBox == null) {
+          print('Warning: Could not extract bounding box, using full image for weight prediction');
+        } else {
+          print('Bounding box extracted: (${boundingBox['x1']}, ${boundingBox['y1']}) to (${boundingBox['x2']}, ${boundingBox['y2']})');
+        }
+        
+        // 7. Crop image to detected food area
+        img.Image? croppedImage = decodedImage;
+        if (boundingBox != null) {
+          print('Cropping image to detected food area...');
+          croppedImage = _cropImageByBoundingBox(
+            decodedImage,
+            boundingBox['x1'],
+            boundingBox['y1'],
+            boundingBox['x2'],
+            boundingBox['y2'],
+          );
+          if (croppedImage != null) {
+            print('Image cropped successfully: ${croppedImage.width}x${croppedImage.height}');
+          } else {
+            print('Warning: Cropping failed, using full image');
+            croppedImage = decodedImage;
+          }
+        }
+        
+        // 8. Use weight predictor to estimate weight (with cropped image)
+        print('Predicting food weight from detected area...');
+        double estimatedWeight = await predictFoodWeight(croppedImage);
         
         print('Recognition successful: ${_labels![maxIdx]} with confidence $maxScore, estimated weight: ${estimatedWeight.toStringAsFixed(0)}g');
         return RecognitionResult(
@@ -306,73 +436,106 @@ class TFLiteService {
   }
 
   // Predict estimated weight from food image
-  Future<double> predictFoodWeight(File imageFile) async {
+  // imageData can be either full image or cropped image (from YOLO detection)
+  Future<double> predictFoodWeight(img.Image imageData) async {
     if (_weightPredictor == null) {
-      print('Error: Weight predictor model not loaded.');
+      print('[TFLiteService.predictFoodWeight] Warning: Weight predictor model not loaded.');
       return 300.0; // Return default if model not loaded
     }
 
     try {
       // Preprocess image for weight predictor (224x224)
-      print('Preprocessing image for weight predictor (224x224)...');
-      final shapedInput = _preprocessImageForWeightPredictor(imageFile);
-      print('Image preprocessed successfully');
+      print('[TFLiteService.predictFoodWeight] Preprocessing image for weight predictor (224x224)...');
+      final shapedInput = _preprocessImageForWeightPredictor(imageData);
+      print('[TFLiteService.predictFoodWeight] Image preprocessed successfully');
 
-      // Create output array - try [1, 1] first
-      print('Creating output array with shape [1, 1]...');
-      List<List<double>> outputArray = [
-        [0.0] // Batch 1, Output value 1
-      ];
-
-      // Run weight prediction
-      print('Running weight predictor inference...');
-      print('   Input shape: [1, 224, 224, 3]');
-      print('   Expected output shape: ${_weightOutShape}');
+      // Prepare output array with robust handling
+      // Try multiple allocation strategies for compatibility
+      dynamic outputArray;
+      bool allocationSuccess = false;
+      
+      // Strategy 1: Try [1, 1] first (most common case)
+      print('[TFLiteService.predictFoodWeight] Creating output array with shape [1, 1]...');
+      outputArray = [[0.0]];
       
       try {
         _weightPredictor!.run(shapedInput, outputArray);
-        print('Weight prediction inference completed successfully');
+        allocationSuccess = true;
+        print('[TFLiteService.predictFoodWeight] [1,1] allocation succeeded');
       } catch (e) {
-        // If [1,1] fails, try allocating as reported shape
-        print('[1,1] allocation failed, trying reported shape: ${_weightOutShape}');
+        print('[TFLiteService.predictFoodWeight] [1,1] allocation failed: $e');
         
-        if (_weightOutShape.length == 2) {
-          outputArray = List.generate(
-            _weightOutShape[0],
-            (_) => List<double>.filled(_weightOutShape[1], 0.0)
-          );
-          _weightPredictor!.run(shapedInput, outputArray);
-          print('Using reported shape ${_weightOutShape} succeeded');
-        } else {
-          throw Exception('Cannot allocate output with shape ${_weightOutShape}');
+        // Strategy 2: Try reported shape from model metadata
+        if (_weightOutShape.isNotEmpty && _weightOutShape.length >= 2) {
+          print('[TFLiteService.predictFoodWeight] Trying reported shape: ${_weightOutShape}');
+          
+          try {
+            if (_weightOutShape.length == 1) {
+              // Flat output
+              outputArray = List<double>.filled(_weightOutShape[0], 0.0);
+            } else {
+              // Multidimensional output
+              outputArray = List.generate(
+                _weightOutShape[0],
+                (_) => List<double>.filled(_weightOutShape[1], 0.0)
+              );
+            }
+            
+            _weightPredictor!.run(shapedInput, outputArray);
+            allocationSuccess = true;
+            print('[TFLiteService.predictFoodWeight] Reported shape succeeded');
+          } catch (e2) {
+            print('[TFLiteService.predictFoodWeight] Reported shape failed: $e2');
+          }
         }
       }
+      
+      if (!allocationSuccess) {
+        throw Exception('Failed to allocate output array with any strategy');
+      }
 
-      print('Raw output: $outputArray');
+      print('[TFLiteService.predictFoodWeight] Raw output: $outputArray');
 
-      // Extract weight value
+      // Extract weight value with robust handling
       double predictedWeight = 300.0;
       
-      if (outputArray.isNotEmpty && outputArray[0].isNotEmpty) {
-        predictedWeight = outputArray[0][0];
-        print('Extracted weight: $predictedWeight grams');
-      } else {
-        print('Output array is empty!');
+      try {
+        if (outputArray is List<double>) {
+          // Flat output
+          if (outputArray.isNotEmpty) {
+            predictedWeight = outputArray[0];
+            print('[TFLiteService.predictFoodWeight] Extracted weight from flat output: $predictedWeight grams');
+          }
+        } else if (outputArray is List<List<double>>) {
+          // 2D output
+          if (outputArray.isNotEmpty && outputArray[0].isNotEmpty) {
+            predictedWeight = outputArray[0][0];
+            print('[TFLiteService.predictFoodWeight] Extracted weight from 2D output: $predictedWeight grams');
+          }
+        } else if (outputArray is List<List<List<double>>>) {
+          // 3D output (shouldn't happen but handle it)
+          if (outputArray.isNotEmpty && outputArray[0].isNotEmpty && outputArray[0][0].isNotEmpty) {
+            predictedWeight = outputArray[0][0][0];
+            print('[TFLiteService.predictFoodWeight] Extracted weight from 3D output: $predictedWeight grams');
+          }
+        }
+      } catch (e) {
+        print('[TFLiteService.predictFoodWeight] Error extracting weight value: $e');
       }
 
       // Validate and clamp weight
-      if (predictedWeight <= 0 || predictedWeight.isNaN) {
-        print('Invalid weight value: $predictedWeight, using default 300g');
+      if (predictedWeight <= 0 || predictedWeight.isNaN || predictedWeight.isInfinite) {
+        print('[TFLiteService.predictFoodWeight] Invalid weight value: $predictedWeight, using default 300g');
         predictedWeight = 300.0;
       }
       predictedWeight = predictedWeight.clamp(50.0, 800.0);
       
-      print('Final predicted weight: ${predictedWeight.toStringAsFixed(1)}g');
+      print('[TFLiteService.predictFoodWeight] Final predicted weight: ${predictedWeight.toStringAsFixed(1)}g');
       return predictedWeight;
 
     } catch (e, s) {
-      print('Error predicting weight: $e');
-      print('   Stack trace: $s');
+      print('[TFLiteService.predictFoodWeight] Error predicting weight: $e');
+      print('[TFLiteService.predictFoodWeight] Stack trace: $s');
       return 300.0; // Return default on error
     }
   }
