@@ -50,46 +50,34 @@ exports.getMealHistory = async (req, res, next) => {
 
     let filter = { userId: req.userId };
 
-    // Date filtering - Convert local date to UTC for MongoDB
+    // Date filtering - Query for meals in Bangkok timezone
     if (startDate || endDate) {
       filter.mealTime = {};
       
-      // Bangkok is UTC+7
-      // Frontend sends Bangkok local time, JS parses it as UTC, so we ADD 7 hours to get true UTC
-      // Example: Local Bangkok 2026-01-18T00:00:00 parsed as UTC = 2026-01-18T00:00:00Z
-      //         True UTC should be: 2026-01-17T17:00:00Z (subtract 7 from local time)
-      // So: localStart (parsed as UTC) + 7 hours = true UTC? NO!
-      // Correct: true UTC = localStart - 7 hours, so offset should be -7
-      // But JS parsed it wrong as UTC, so we need to ADD 7 to get back to what it really is
-      // Actually: Frontend sends as Bangkok local "2026-01-18T00:00:00"
-      //         We need to find UTC times that = this Bangkok time
-      //         Bangkok 2026-01-18T00:00:00 = UTC 2026-01-17T17:00:00
-      // JS new Date("2026-01-18T00:00:00.000") = 2026-01-18T00:00:00.000Z (assumes UTC)
-      // To get true UTC: subtract 7 hours = 2026-01-17T17:00:00.000Z
-      const timezoneOffsets = {
-        'Asia/Bangkok': -7,  // Offset to convert from what JS parsed to true UTC
+      // Frontend sends dates as Bangkok local time strings (e.g., "2026-01-28T00:00:00")
+      // We need to convert to UTC for querying MongoDB
+      // Bangkok is UTC+7, so:
+      // Bangkok 2026-01-28T00:00:00 = UTC 2026-01-27T17:00:00 (subtract 7 hours)
+      
+      const parseAsLocalTime = (dateString) => {
+        // Parse the string as if it's UTC first, then subtract 7 hours
+        // to get the UTC equivalent of Bangkok local time
+        const utcDate = new Date(dateString + 'Z'); // Force UTC parse
+        return new Date(utcDate.getTime() - (7 * 60 * 60 * 1000));
       };
-      const offsetHours = timezoneOffsets[timezone] || -7;
-      const offsetMs = offsetHours * 60 * 60 * 1000;
       
       if (startDate) {
-        // startDate is in Bangkok local time (e.g., "2026-01-18T00:00:00.000")
-        // JS new Date(startDate) parses this as UTC automatically
-        // We subtract 7 hours to get the true UTC time that equals this Bangkok local time
-        const localStart = new Date(startDate);
-        const utcStart = new Date(localStart.getTime() + offsetMs);
+        const utcStart = parseAsLocalTime(startDate);
         filter.mealTime.$gte = utcStart;
-        console.log('DEBUG: startDate (Bangkok local):', startDate);
-        console.log('DEBUG: startDate (true UTC):', utcStart.toISOString());
+        console.log('DEBUG: startDate (Bangkok):', startDate);
+        console.log('DEBUG: startDate (UTC):', utcStart.toISOString());
       }
       
       if (endDate) {
-        // endDate is in Bangkok local time
-        const localEnd = new Date(endDate);
-        const utcEnd = new Date(localEnd.getTime() + offsetMs);
+        const utcEnd = parseAsLocalTime(endDate);
         filter.mealTime.$lte = utcEnd;
-        console.log('DEBUG: endDate (Bangkok local):', endDate);
-        console.log('DEBUG: endDate (true UTC):', utcEnd.toISOString());
+        console.log('DEBUG: endDate (Bangkok):', endDate);
+        console.log('DEBUG: endDate (UTC):', utcEnd.toISOString());
       }
     }
 

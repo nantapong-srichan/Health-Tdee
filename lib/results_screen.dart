@@ -327,9 +327,13 @@ class _ResultsScreenState extends State<ResultsScreen> {
         final startOfDay = DateTime(today.year, today.month, today.day);
         final endOfDay = startOfDay.add(const Duration(days: 1)).subtract(const Duration(seconds: 1));
         
+        // Send as Bangkok local times (without Z)
+        final startDateStr = startOfDay.toIso8601String().split('.')[0]; // 2026-01-28T00:00:00
+        final endDateStr = endOfDay.toIso8601String().split('.')[0];     // 2026-01-29T00:00:00
+        
         final reloadResponse = await mealService.getMealHistory(
-          startDate: startOfDay.toIso8601String(),
-          endDate: endOfDay.toIso8601String(),
+          startDate: startDateStr,
+          endDate: endDateStr,
           limit: 100,
         );
         
@@ -341,6 +345,11 @@ class _ResultsScreenState extends State<ResultsScreen> {
           final meals = reloadResponse['meals'] as List?;
           if (meals != null && meals.isNotEmpty) {
             for (var meal in meals) {
+              // Convert UTC to Bangkok time (UTC+7) before extracting date
+              final utcTime = DateTime.parse(meal['mealTime'] as String);
+              final bangkokTime = utcTime.add(const Duration(hours: 7));
+              final dateInBangkokTime = bangkokTime.toString().split(' ')[0]; // YYYY-MM-DD
+              
               sessionData.addMeal({
                 'foodName': meal['foodName'],
                 'calories': (meal['nutrition']?['calories'] ?? 0).toDouble(),
@@ -352,7 +361,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 'estimatedWeight': meal['estimatedWeight'],
                 'confidence': meal['confidence'],
                 'mealType': meal['mealType'] ?? 'other',
-                'date': DateTime.parse(meal['mealTime'] as String).toString().split(' ')[0],
+                'date': dateInBangkokTime,
                 'mealId': meal['_id'],
               });
             }

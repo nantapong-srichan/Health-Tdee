@@ -95,20 +95,28 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadTodayMeals() async {
     try {
+      // Create Bangkok midnight times
       final startOfDay = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
       final endOfDay = startOfDay.add(const Duration(days: 1)).subtract(const Duration(seconds: 1));
 
       print('DEBUG: Loading meals for $_selectedDate');
-      print('DEBUG: Start: $startOfDay, End: $endOfDay');
+      print('DEBUG: Start (local): $startOfDay, End (local): $endOfDay');
 
       // Check if authenticated
       final apiService = ApiService();
       final token = await apiService.getToken();
       print('DEBUG: Token exists: ${token != null}');
 
+      // Send as Bangkok local times (without Z)
+      final startDateStr = startOfDay.toIso8601String().split('.')[0]; // 2026-01-28T00:00:00
+      final endDateStr = endOfDay.toIso8601String().split('.')[0];     // 2026-01-29T00:00:00
+
+      print('DEBUG: startDate (Bangkok): $startDateStr');
+      print('DEBUG: endDate (Bangkok): $endDateStr');
+
       final response = await _mealService.getMealHistory(
-        startDate: startOfDay.toIso8601String(),
-        endDate: endOfDay.toIso8601String(),
+        startDate: startDateStr,
+        endDate: endDateStr,
         limit: 100,
       );
 
