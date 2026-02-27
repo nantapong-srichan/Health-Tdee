@@ -66,10 +66,12 @@ const mealSchema = new mongoose.Schema(
       description: 'in grams',
     },
 
-    // Image (optional)
+    // Image URL (uploaded to Google Cloud Storage)
     imageUrl: {
       type: String,
       trim: true,
+      default: null,
+      description: 'URL of the food image stored in Google Cloud Storage',
     },
 
     // AI Model Confidence (from TFLite)

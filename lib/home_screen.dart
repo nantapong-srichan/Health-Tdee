@@ -127,10 +127,13 @@ class _HomeScreenState extends State<HomeScreen> {
         sessionData.selectedDate = _selectedDate;
         
         // Clear meals for this date before adding new ones (prevent duplicates)
+        print('DEBUG: Clearing meals before load for date: $_selectedDate');
+        print('DEBUG: Meals before clear: ${sessionData.getMealsForDate(_selectedDate).length}');
         sessionData.clearMealsForDate(_selectedDate);
+        print('DEBUG: Meals after clear: ${sessionData.getMealsForDate(_selectedDate).length}');
         
         final meals = response['meals'] as List?;
-        print('DEBUG: Meals count: ${meals?.length ?? 0}');
+        print('DEBUG: Meals count from server: ${meals?.length ?? 0}');
         
         if (meals != null && meals.isNotEmpty) {
           for (var meal in meals) {
@@ -148,6 +151,7 @@ class _HomeScreenState extends State<HomeScreen> {
               'mealType': meal['mealType'] ?? 'other',
               'date': _getMealDateInBangkokTime(meal['mealTime'] as String),
               'mealId': meal['_id'],
+              'imageUrl': meal['imageUrl'], // ✅ เพิ่มรูปอาหาร
             });
           }
         } else {
@@ -1371,6 +1375,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildFoodItem(TextTheme theme, Map<String, dynamic> meal) {
     final mealName = meal['foodName'] ?? 'ไม่ระบุชื่อ';
     final calories = (meal['calories'] ?? 0).toStringAsFixed(0);
+    final imageUrl = meal['imageUrl'] as String?;
+    
+    print('DEBUG FOOD ITEM: meal data: $meal');
+    print('DEBUG FOOD ITEM: imageUrl value: $imageUrl');
     
     return GestureDetector(
       onTap: () {
@@ -1379,7 +1387,7 @@ class _HomeScreenState extends State<HomeScreen> {
           MaterialPageRoute(
             builder: (context) => MealConfirmationScreen(
               foodName: mealName,
-              imagePath: meal['imagePath'] ?? '',
+              imagePath: imageUrl ?? meal['imagePath'] ?? '', // ✅ ส่ง imageUrl ก่อน
               nutritionValues: {
                 'calories': (meal['calories'] ?? 0).toDouble(),
                 'protein': (meal['protein'] ?? 0).toDouble(),
@@ -1411,8 +1419,16 @@ class _HomeScreenState extends State<HomeScreen> {
               decoration: BoxDecoration(
                 color: Colors.grey[200],
                 borderRadius: BorderRadius.circular(10),
+                image: imageUrl != null && imageUrl.isNotEmpty
+                    ? DecorationImage(
+                        image: NetworkImage(imageUrl),
+                        fit: BoxFit.cover,
+                      )
+                    : null,
               ),
-              child: Icon(Icons.fastfood, color: Colors.grey[600], size: 28),
+              child: imageUrl == null || imageUrl.isEmpty
+                  ? Icon(Icons.fastfood, color: Colors.grey[600], size: 28)
+                  : null,
             ),
             const SizedBox(width: 15),
             Expanded(

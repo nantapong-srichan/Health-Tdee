@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'dart:io';
 import 'session_data.dart';
 import 'services/meal_service.dart';
+import 'services/image_upload_service.dart';
 
 class MealConfirmationScreen extends StatefulWidget {
   final String foodName;
@@ -36,6 +38,8 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
   late double _baseProtein;
   late double _baseCarbs;
   late double _baseFat;
+  bool _isUploading = false;
+  late final ImageUploadService _imageUploadService;
 
   @override
   void initState() {
@@ -51,6 +55,9 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
     _protein = _baseProtein;
     _carbs = _baseCarbs;
     _fat = _baseFat;
+    
+    // Initialize image upload service
+    _imageUploadService = ImageUploadService();
   }
 
   void _updateNutritionByWeight(double newWeight) {
@@ -116,12 +123,7 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(20),
-                        child: Image.asset(
-                          widget.imagePath,
-                          height: 200,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        ),
+                        child: _buildFoodImage(),
                       ),
                       const SizedBox(height: 16),
                       Text(
@@ -219,7 +221,8 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () {
+                    onPressed: _isUploading ? null : () {
+                      print('🔘 BUTTON PRESSED: _saveMeal called');
                       _saveMeal(context);
                     },
                     style: ElevatedButton.styleFrom(
@@ -229,14 +232,23 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: Text(
-                      'บันทึกอาหาร',
-                      style: kanitTheme.titleMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
+                    child: _isUploading
+                        ? SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Text(
+                            'บันทึกอาหาร',
+                            style: kanitTheme.titleMedium?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -415,6 +427,81 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
     );
   }
 
+  Widget _buildFoodImage() {
+    // Check if imagePath is URL, local file, or asset
+    if (widget.imagePath.isEmpty) {
+      // Placeholder if no image
+      return Container(
+        height: 200,
+        width: double.infinity,
+        color: Colors.grey[200],
+        child: const Icon(Icons.image, size: 50, color: Colors.grey),
+      );
+    }
+
+    if (widget.imagePath.startsWith('http')) {
+      // It's a URL (from GCS)
+      return Image.network(
+        widget.imagePath,
+        height: 200,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            height: 200,
+            width: double.infinity,
+            color: Colors.grey[200],
+            child: const Icon(Icons.broken_image, size: 50, color: Colors.grey),
+          );
+        },
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            height: 200,
+            width: double.infinity,
+            color: Colors.grey[200],
+            child: const Center(child: CircularProgressIndicator()),
+          );
+        },
+      );
+    }
+
+    // Check if it's a local file
+    File imageFile = File(widget.imagePath);
+    if (imageFile.existsSync()) {
+      return Image.file(
+        imageFile,
+        height: 200,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            height: 200,
+            width: double.infinity,
+            color: Colors.grey[200],
+            child: const Icon(Icons.broken_image, size: 50, color: Colors.grey),
+          );
+        },
+      );
+    }
+
+    // Try as asset (fallback)
+    return Image.asset(
+      widget.imagePath,
+      height: 200,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) {
+        return Container(
+          height: 200,
+          width: double.infinity,
+          color: Colors.grey[200],
+          child: const Icon(Icons.image_not_supported, size: 50, color: Colors.grey),
+        );
+      },
+    );
+  }
+
   void _showDeleteConfirmDialog(BuildContext context) {
     final kanitTheme = GoogleFonts.kanitTextTheme(Theme.of(context).textTheme);
     
@@ -496,8 +583,6 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
   }
 
   void _saveMeal(BuildContext context) async {
-    final sessionData = Provider.of<SessionData>(context, listen: false);
-
     // Check if editing existing meal or creating new one
     if (widget.mealId != null) {
       // Edit existing meal
@@ -544,76 +629,79 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
         );
       }
     } else {
-      // If coming from results_screen, only return values without saving
-      // results_screen will handle the saving
-      if (widget.fromResultsScreen) {
-        Navigator.pop(context, {
-          'calories': _calories,
-          'protein': _protein,
-          'carbs': _carbs,
-          'fat': _fat,
-          'estimatedWeight': _estimatedWeight,
-        });
-        return;
-      }
-
-      // Create new meal (not from results_screen)
-      // Save to backend first
-      final mealService = MealService();
-      final response = await mealService.saveMeal(
-        foodName: widget.foodName,
-        calories: _calories.toInt(),
-        protein: _protein,
-        carbs: _carbs,
-        fat: _fat,
-        fiber: 0.0,
-        sodium: 0.0,
-        estimatedWeight: _estimatedWeight,
-        confidence: 0.0,
-        mealType: 'lunch',
-      );
-
-      print('DEBUG MEAL_CONFIRMATION: saveMeal response: $response');
-
-      if (response['success']) {
-        // Also save to SessionData for local display
-        final mealData = {
-          'name': widget.foodName,
-          'imagePath': widget.imagePath,
-          'calories': _calories,
-          'protein': _protein,
-          'carbs': _carbs,
-          'fat': _fat,
-          'timestamp': DateTime.now(),
-          'mealId': response['mealId'],
-        };
-
-        sessionData.addMeal(mealData);
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('บันทึก${widget.foodName}สำเร็จ'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-
-        // Return nutrition values for results_screen
-        Navigator.pop(context, {
-          'calories': _calories,
-          'protein': _protein,
-          'carbs': _carbs,
-          'fat': _fat,
-          'estimatedWeight': _estimatedWeight,
-        });
+      // Create new meal - upload image if it exists
+      print('🔵 _saveMeal: Creating new meal');
+      
+      File imageFile = File(widget.imagePath);
+      print('🔵 _saveMeal: Image path: ${imageFile.path}');
+      print('🔵 _saveMeal: Image exists: ${imageFile.existsSync()}');
+      
+      if (imageFile.existsSync()) {
+        // Upload image to Google Cloud Storage via Backend
+        print('📤 _saveMeal: Uploading image: ${imageFile.path}');
+        setState(() => _isUploading = true);
+        
+        try {
+          // อัปโหลดรูปพร้อมข้อมูล meal ในครั้งเดียว
+          print('🔵 _saveMeal: Calling uploadFoodImageWithMealData...');
+          String? result = await _imageUploadService.uploadFoodImageWithMealData(
+            imageFile: imageFile,
+            foodName: widget.foodName,
+            nutrition: {
+              'calories': _calories,
+              'protein': _protein,
+              'carbohydrates': _carbs,
+              'fat': _fat,
+            },
+            estimatedWeight: _estimatedWeight,
+            mealType: 'lunch',
+            confidence: 0.0,
+          );
+          
+          if (result != null) {
+            print('✅ Image and meal uploaded successfully');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('บันทึก${widget.foodName}สำเร็จ'),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 2),
+              ),
+            );
+            
+            // Return nutrition values for results_screen
+            Navigator.pop(context, {
+              'calories': _calories,
+              'protein': _protein,
+              'carbs': _carbs,
+              'fat': _fat,
+              'estimatedWeight': _estimatedWeight,
+              'imageUrl': result,
+            });
+          } else {
+            throw Exception('Upload failed');
+          }
+        } catch (e) {
+          print('❌ Error uploading: $e');
+          setState(() => _isUploading = false);
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('เกิดข้อผิดพลาด: $e'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('เกิดข้อผิดพลาด: ${response['message']}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 2),
-          ),
-        );
+        // Image file doesn't exist, just return values
+        print('🔵 _saveMeal: No image file, returning values');
+        Navigator.pop(context, {
+          'calories': _calories,
+          'protein': _protein,
+          'carbs': _carbs,
+          'fat': _fat,
+          'estimatedWeight': _estimatedWeight,
+        });
       }
     }
   }

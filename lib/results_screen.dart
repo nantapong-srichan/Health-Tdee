@@ -9,6 +9,7 @@ import 'recognition_result.dart';
 import 'session_data.dart';
 import 'nutrition_database.dart';
 import 'services/meal_service.dart';
+import 'services/image_upload_service.dart';
 
 class ResultsScreen extends StatefulWidget {
   final XFile imageFile;
@@ -30,6 +31,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
   late double _carbs;
   late double _fat;
   late double _estimatedWeight;
+  String? _uploadedImageUrl; // Store image URL if uploaded from meal_confirmation_screen
 
   @override
   void initState() {
@@ -170,12 +172,18 @@ class _ResultsScreenState extends State<ResultsScreen> {
                       
                       // Update values if returned from meal_confirmation_screen
                       if (result != null) {
+                        print('DEBUG RESULTS: Received result from meal_confirmation_screen: $result');
                         setState(() {
                           _calories = result['calories'] ?? _calories;
                           _protein = result['protein'] ?? _protein;
                           _carbs = result['carbs'] ?? _carbs;
                           _fat = result['fat'] ?? _fat;
                           _estimatedWeight = result['estimatedWeight'] ?? _estimatedWeight;
+                          // Check if image was uploaded to GCS
+                          if (result['imageUrl'] != null) {
+                            _uploadedImageUrl = result['imageUrl'].toString();
+                            print('DEBUG RESULTS: Image uploaded! URL: $_uploadedImageUrl');
+                          }
                         });
                       }
                     },
@@ -297,9 +305,89 @@ class _ResultsScreenState extends State<ResultsScreen> {
     
     // Use current edited nutrition values from state
     final mealService = MealService();
+    final imageUploadService = ImageUploadService();
     
     try {
-      // Save meal to backend (this happens in background)
+      String? finalImageUrl = _uploadedImageUrl;
+      
+      // If image not yet uploaded and we have an image file, upload it now
+      if (finalImageUrl == null && widget.imageFile != null) {
+        print('DEBUG RESULTS: Uploading image directly from results_screen...');
+        try {
+          finalImageUrl = await imageUploadService.uploadFoodImageWithMealData(
+            imageFile: File(widget.imageFile.path),
+            foodName: widget.result.foodName,
+            nutrition: {
+              'calories': _calories,
+              'protein': _protein,
+              'carbohydrates': _carbs,
+              'fat': _fat,
+            },
+            estimatedWeight: _estimatedWeight,
+            mealType: 'lunch',
+            confidence: widget.result.confidence,
+          );
+          print('DEBUG RESULTS: Image upload result: $finalImageUrl');
+          print('DEBUG RESULTS: uploadFoodImageWithMealData already saved the meal, no need to call saveMeal again');
+          
+          // uploadFoodImageWithMealData() already saved the meal, so we're done
+          if (!mounted) return;
+          
+          // Just reload meals from backend and navigate back
+          final sessionData = Provider.of<SessionData>(context, listen: false);
+          final today = DateTime.now();
+          final startOfDay = DateTime(today.year, today.month, today.day);
+          final endOfDay = startOfDay.add(const Duration(days: 1)).subtract(const Duration(seconds: 1));
+          
+          final startDateStr = startOfDay.toIso8601String().split('.')[0];
+          final endDateStr = endOfDay.toIso8601String().split('.')[0];
+          
+          final reloadResponse = await mealService.getMealHistory(
+            startDate: startDateStr,
+            endDate: endDateStr,
+            limit: 100,
+          );
+          
+          if (!mounted) return;
+          
+          if (reloadResponse['success']) {
+            sessionData.clearMealsForDate(today);
+            final meals = reloadResponse['meals'] as List?;
+            if (meals != null && meals.isNotEmpty) {
+              for (var meal in meals) {
+                final mealDate = DateTime.parse(meal['mealTime'] as String).add(const Duration(hours: 7));
+                sessionData.addMeal({
+                  'foodName': meal['foodName'],
+                  'calories': (meal['nutrition']?['calories'] ?? 0).toDouble(),
+                  'protein': (meal['nutrition']?['protein'] ?? 0).toDouble(),
+                  'carbs': (meal['nutrition']?['carbohydrates'] ?? 0).toDouble(),
+                  'fat': (meal['nutrition']?['fat'] ?? 0).toDouble(),
+                  'fiber': (meal['nutrition']?['fiber'] ?? 0).toDouble(),
+                  'sodium': (meal['nutrition']?['sodium'] ?? 0).toDouble(),
+                  'estimatedWeight': meal['estimatedWeight'],
+                  'confidence': meal['confidence'],
+                  'mealType': meal['mealType'] ?? 'other',
+                  'date': mealDate.toString().split(' ')[0],
+                  'mealId': meal['_id'],
+                  'imageUrl': meal['imageUrl'],
+                });
+              }
+            }
+          }
+          
+          if (!mounted) return;
+          // Pop twice: once for results_screen, once for image_picker_screen
+          Navigator.of(context).pop();
+          Navigator.of(context).pop();
+          return;
+        } catch (uploadError) {
+          print('❌ Error uploading image: $uploadError');
+          // If upload fails, fall back to saveMeal without image
+        }
+      }
+      
+      // Only call saveMeal if we didn't upload image (or upload failed)
+      print('DEBUG RESULTS: _handleConfirmMeal - Saving meal with imageUrl: $finalImageUrl');
       final response = await mealService.saveMeal(
         foodName: widget.result.foodName,
         calories: _calories.toInt(),
@@ -311,6 +399,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
         estimatedWeight: _estimatedWeight,
         confidence: widget.result.confidence,
         mealType: 'lunch',
+        imageUrl: finalImageUrl,
       );
 
       print('DEBUG RESULTS: saveMeal response: $response');

@@ -1,15 +1,35 @@
 const Meal = require('../models/Meal');
+const { uploadImageToGCS, deleteImageFromGCS } = require('../utils/uploadService');
 
 // Save meal result
 exports.saveMeal = async (req, res, next) => {
   try {
-    const { foodName, nutrition, estimatedWeight, mealType, confidence, imageUrl, notes } =
-      req.body;
-
+    const { foodName, nutrition, estimatedWeight, mealType, confidence, notes, imageUrl: bodyImageUrl } = req.body;
+    
     console.log('DEBUG: saveMeal request body:', req.body);
     console.log('DEBUG: userId:', req.userId);
     console.log('DEBUG: foodName:', foodName);
-    console.log('DEBUG: nutrition:', nutrition);
+    console.log('DEBUG: File uploaded:', req.file ? 'Yes' : 'No');
+    console.log('DEBUG: imageUrl from body:', bodyImageUrl);
+
+    let imageUrl = bodyImageUrl || null;
+
+    // Handle image upload if file is provided
+    if (req.file) {
+      try {
+        // อัปโหลดรูปภาพไปยัง Google Cloud Storage
+        imageUrl = await uploadImageToGCS(
+          req.file.buffer,
+          req.file.originalname,
+          req.file.mimetype
+        );
+        console.log('✅ Image uploaded successfully:', imageUrl);
+      } catch (uploadError) {
+        console.error('❌ Error uploading image:', uploadError.message);
+        // ดำเนินการต่อแม้การอัปโหลดรูปล้มเหลว แต่บันทึกไว้
+        console.log('⚠️ Continuing meal save without image');
+      }
+    }
 
     const meal = await Meal.create({
       userId: req.userId,
@@ -18,7 +38,7 @@ exports.saveMeal = async (req, res, next) => {
       estimatedWeight,
       mealType: mealType || 'other',
       confidence,
-      imageUrl,
+      imageUrl, // บันทึก URL ของรูปภาพ (จาก body หรืออัปโหลด)
       notes,
       mealTime: new Date(),
     });
@@ -156,6 +176,30 @@ exports.updateMeal = async (req, res, next) => {
     }
 
     const { foodName, nutrition, estimatedWeight, mealType, notes } = req.body;
+    
+    let imageUrl = meal.imageUrl; // เก็บ URL รูปเก่าไว้ก่อน
+
+    // Handle image replacement if new file is uploaded
+    if (req.file) {
+      try {
+        // ลบรูปเก่าหากมี
+        if (meal.imageUrl) {
+          await deleteImageFromGCS(meal.imageUrl);
+        }
+        
+        // อัปโหลดรูปใหม่
+        imageUrl = await uploadImageToGCS(
+          req.file.buffer,
+          req.file.originalname,
+          req.file.mimetype
+        );
+        console.log('✅ Image updated successfully:', imageUrl);
+      } catch (uploadError) {
+        console.error('❌ Error updating image:', uploadError.message);
+        // ยังคงใช้รูปเก่า
+        imageUrl = meal.imageUrl;
+      }
+    }
 
     meal = await Meal.findByIdAndUpdate(
       req.params.id,
@@ -164,6 +208,7 @@ exports.updateMeal = async (req, res, next) => {
         nutrition,
         estimatedWeight,
         mealType,
+        imageUrl,
         notes,
         updatedAt: Date.now(),
       },
@@ -198,6 +243,17 @@ exports.deleteMeal = async (req, res, next) => {
         success: false,
         message: 'Not authorized to delete this meal',
       });
+    }
+
+    // ลบรูปภาพจาก Google Cloud Storage หากมี
+    if (meal.imageUrl) {
+      try {
+        await deleteImageFromGCS(meal.imageUrl);
+        console.log('✅ Image deleted successfully');
+      } catch (deleteError) {
+        console.error('⚠️ Error deleting image:', deleteError.message);
+        // ดำเนินการต่อแม้การลบรูปล้มเหลว
+      }
     }
 
     await Meal.findByIdAndDelete(req.params.id);
