@@ -2,7 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:percent_indicator/percent_indicator.dart';
-import 'package:provider/provider.dart'; 
+import 'package:provider/provider.dart';
+import 'package:fl_chart/fl_chart.dart' as fl_chart;
 import 'services/auth_service.dart';
 import 'services/meal_service.dart';
 import 'services/api_service.dart';
@@ -1167,11 +1168,17 @@ class _HomeScreenState extends State<HomeScreen> {
     return StatefulBuilder(
       builder: (context, setState) {
         final today = DateTime.now();
+        
+        // คำนวณวันอาทิตย์ของสัปดาห์ที่ _selectedDate อยู่
+        final weekday = _selectedDate.weekday; // 1=Monday, 7=Sunday
+        final daysToSunday = weekday == 7 ? 0 : weekday; // วันจันทร์ให้ลบ 1, วันอาทิตย์ให้ลบ 0
+        final sundayOfWeek = _selectedDate.subtract(Duration(days: daysToSunday));
+        
         final datesList = <DateTime>[];
         
-        // สร้างลิสต์วันที่สำหรับ "รายวัน"
-        for (int i = 6; i >= 0; i--) {
-          datesList.add(today.subtract(Duration(days: i)));
+        // สร้างลิสต์วันที่สำหรับสัปดาห์ (อาทิตย์ - เสาร์)
+        for (int i = 0; i < 7; i++) {
+          datesList.add(sundayOfWeek.add(Duration(days: i)));
         }
         
         // หาวันที่เลือก index
@@ -1182,7 +1189,7 @@ class _HomeScreenState extends State<HomeScreen> {
         );
         
         if (selectedIndex == -1) {
-          selectedIndex = 6; // Default to today
+          selectedIndex = 0;
         }
         
         return DefaultTabController(
@@ -1204,8 +1211,51 @@ class _HomeScreenState extends State<HomeScreen> {
                 tabs: const [
                   Tab(text: 'รายวัน'),
                   Tab(text: '7 วันย้อนหลัง'),
-                  Tab(text: '30 วันย้อนหลัง'),
+                  Tab(text: '14 วันย้อนหลัง'),
                 ],
+              ),
+              const SizedBox(height: 12),
+              // Display selected date - centered below tabs with calendar icon
+              Consumer<SessionData>(
+                builder: (context, data, _) {
+                  final selectedDate = data.selectedDate ?? DateTime.now();
+                  final months = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+                                  'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+                  final monthName = months[selectedDate.month - 1];
+                  final thaiYear = selectedDate.year + 543;
+                  
+                  return Center(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          '${selectedDate.day} $monthName $thaiYear',
+                          style: theme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.calendar_today, size: 20),
+                          onPressed: () {
+                            showDatePicker(
+                              context: context,
+                              initialDate: selectedDate,
+                              firstDate: DateTime(2020),
+                              lastDate: DateTime(2030),
+                            ).then((pickedDate) {
+                              if (pickedDate != null) {
+                                final sessionData = Provider.of<SessionData>(context, listen: false);
+                                this.setState(() {
+                                  _selectedDate = pickedDate;
+                                  sessionData.selectedDate = pickedDate;
+                                });
+                              }
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
               const SizedBox(height: 16),
               // รายวัน - calendar date picker
@@ -1256,14 +1306,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 )
               else
-                SizedBox(
-                  height: 70,
-                  child: Center(
-                    child: Text(
-                      _selectedTabIndex == 1 ? '7 วันย้อนหลัง' : '30 วันย้อนหลัง',
-                      style: theme.bodyMedium?.copyWith(color: Colors.grey),
-                    ),
-                  ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 20.0),
+                  child: _selectedTabIndex == 1
+                      ? _build7DaysChart(theme, sessionData)
+                      : _build14DaysChart(theme, sessionData),
                 ),
             ],
           ),
@@ -1319,7 +1366,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text("${caloriesForDate.toStringAsFixed(0)} kCal", style: theme.titleLarge?.copyWith(fontWeight: FontWeight.bold, fontSize: 19)),
-                      Text("เหลือ ${(goal - caloriesForDate).toStringAsFixed(0)}", style: theme.bodySmall?.copyWith(color: Colors.grey)),
+                      Text(caloriesForDate > goal ? "เกิน ${(caloriesForDate - goal).toStringAsFixed(0)}" : "เหลือ ${(goal - caloriesForDate).toStringAsFixed(0)}", style: theme.bodySmall?.copyWith(color: Colors.grey)),
                     ],
                   ),
                   progressColor: const Color(0xFFFABB5A),
@@ -1561,6 +1608,282 @@ class _HomeScreenState extends State<HomeScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Helper method to get 7 days calorie data
+  List<fl_chart.FlSpot> _get7DaysChartData(SessionData sessionData) {
+    final weekday = _selectedDate.weekday;
+    final daysToSunday = weekday == 7 ? 0 : weekday;
+    final sundayOfWeek = _selectedDate.subtract(Duration(days: daysToSunday));
+    final caloriesList = <fl_chart.FlSpot>[];
+    
+    for (int i = 0; i < 7; i++) {
+      final date = sundayOfWeek.add(Duration(days: i));
+      final calories = sessionData.getCaloriesForDate(date);
+      caloriesList.add(fl_chart.FlSpot(i.toDouble(), calories));
+    }
+    
+    return caloriesList;
+  }
+
+  // Helper method to get 14 days calorie data
+  List<fl_chart.FlSpot> _get14DaysChartData(SessionData sessionData) {
+    final caloriesList = <fl_chart.FlSpot>[];
+    
+    for (int i = 13; i >= 0; i--) {
+      final date = _selectedDate.subtract(Duration(days: i));
+      final calories = sessionData.getCaloriesForDate(date);
+      caloriesList.add(fl_chart.FlSpot(13 - i.toDouble(), calories));
+    }
+    
+    return caloriesList;
+  }
+
+  // Widget to display 7 days chart
+  Widget _build7DaysChart(TextTheme theme, SessionData sessionData) {
+    return Consumer<SessionData>(
+      builder: (context, data, _) {
+        final chartData = _get7DaysChartData(data);
+        final goalCalories = data.getDailyCalorieGoal();
+        
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('7 วันย้อนหลัง', style: theme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              // Legend
+              Wrap(
+                spacing: 20,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFABB5A),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text('แคลอรี่ที่บริโภค', style: theme.bodySmall),
+                    ],
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFF1744),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text('แคลอรี่ที่เกิน', style: theme.bodySmall),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                height: 250,
+                child: fl_chart.BarChart(
+                  fl_chart.BarChartData(
+                    gridData: fl_chart.FlGridData(show: true, drawVerticalLine: false),
+                    titlesData: fl_chart.FlTitlesData(
+                      rightTitles: fl_chart.AxisTitles(),
+                      topTitles: fl_chart.AxisTitles(),
+                      bottomTitles: fl_chart.AxisTitles(
+                        sideTitles: fl_chart.SideTitles(
+                          showTitles: true,
+                          getTitlesWidget: (value, meta) {
+                            final days = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
+                            final index = value.toInt();
+                            if (index >= 0 && index < days.length) {
+                              return Text(days[index], style: theme.bodySmall);
+                            }
+                            return const Text('');
+                          },
+                        ),
+                      ),
+                      leftTitles: fl_chart.AxisTitles(
+                        sideTitles: fl_chart.SideTitles(
+                          showTitles: true,
+                          getTitlesWidget: (value, meta) {
+                            // ซ่อนตัวเลขสูงสุด (maxY)
+                            if (value == goalCalories * 1.2) {
+                              return const Text('');
+                            }
+                            return Text('${value.toInt()}', style: theme.bodySmall, textAlign: TextAlign.center);
+                          },
+                          reservedSize: 40,
+                        ),
+                      ),
+                    ),
+                    borderData: fl_chart.FlBorderData(show: false),
+                    minY: 0,
+                    maxY: goalCalories * 1.2,
+                    barGroups: List.generate(
+                      chartData.length,
+                      (index) => fl_chart.BarChartGroupData(
+                        x: index,
+                        barRods: [
+                          fl_chart.BarChartRodData(
+                            fromY: 0,
+                            toY: chartData[index].y,
+                            color: chartData[index].y > goalCalories ? const Color(0xFFFF1744) : const Color(0xFFFABB5A),
+                            width: 16,
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Widget to display 14 days chart
+  Widget _build14DaysChart(TextTheme theme, SessionData sessionData) {
+    return Consumer<SessionData>(
+      builder: (context, data, _) {
+        final chartData = _get14DaysChartData(data);
+        final goalCalories = data.getDailyCalorieGoal();
+        
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('14 วันย้อนหลัง', style: theme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              // Legend
+              Wrap(
+                spacing: 20,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFABB5A),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text('แคลอรี่ที่บริโภค', style: theme.bodySmall),
+                    ],
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFF1744),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text('แคลอรี่ที่เกิน', style: theme.bodySmall),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                height: 250,
+                child: fl_chart.BarChart(
+                  fl_chart.BarChartData(
+                    gridData: fl_chart.FlGridData(show: true, drawVerticalLine: false),
+                    titlesData: fl_chart.FlTitlesData(
+                      rightTitles: fl_chart.AxisTitles(),
+                      topTitles: fl_chart.AxisTitles(),
+                      bottomTitles: fl_chart.AxisTitles(
+                        sideTitles: fl_chart.SideTitles(
+                          showTitles: true,
+                          interval: 2,
+                          getTitlesWidget: (value, meta) {
+                            final index = value.toInt();
+                            if (index >= 0 && index < chartData.length) {
+                              final date = _selectedDate.subtract(Duration(days: 13 - index));
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: Transform.rotate(
+                                  angle: -0.785,
+                                  child: Text(
+                                    '${date.day}/${date.month}',
+                                    style: theme.bodySmall?.copyWith(fontSize: 11, fontWeight: FontWeight.w600),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              );
+                            }
+                            return const Text('');
+                          },
+                        ),
+                      ),
+                      leftTitles: fl_chart.AxisTitles(
+                        sideTitles: fl_chart.SideTitles(
+                          showTitles: true,
+                          getTitlesWidget: (value, meta) {
+                            // ซ่อนตัวเลขสูงสุด (maxY)
+                            if (value == goalCalories * 1.2) {
+                              return const Text('');
+                            }
+                            return Text('${value.toInt()}', style: theme.bodySmall, textAlign: TextAlign.center);
+                          },
+                          reservedSize: 40,
+                        ),
+                      ),
+                    ),
+                    borderData: fl_chart.FlBorderData(show: false),
+                    minY: 0,
+                    maxY: goalCalories * 1.2,
+                    barGroups: List.generate(
+                      chartData.length,
+                      (index) => fl_chart.BarChartGroupData(
+                        x: index,
+                        barRods: [
+                          fl_chart.BarChartRodData(
+                            fromY: 0,
+                            toY: chartData[index].y,
+                            color: chartData[index].y > goalCalories ? const Color(0xFFFF1744) : const Color(0xFFFABB5A),
+                            width: 8,
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

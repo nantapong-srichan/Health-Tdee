@@ -47,7 +47,8 @@ dependencies:
   
   # home page indicatior
   percent_indicator: ^4.2.3 
-
+  # Chart library for graphs
+  fl_chart: ^0.70.0
   cupertino_icons: ^1.0.8
 
   provider: ^6.1.2
