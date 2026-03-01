@@ -76,6 +76,10 @@ class _HomeScreenState extends State<HomeScreen> {
           sessionData.updateHeightDouble(
               (userProfile['height'] as num).toDouble());
         }
+        if (userProfile['profileImageUrl'] != null) {
+          sessionData.updateProfileImageUrl(
+              userProfile['profileImageUrl'] as String);
+        }
         if (userProfile['diseases'] != null) {
           final diseasesList = (userProfile['diseases'] as List?)?.cast<String>() ?? [];
           sessionData.updateDiseases(diseasesList);
@@ -326,9 +330,11 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             CircleAvatar(
               radius: 35,
-              backgroundImage: sessionData.profileImagePath != null
-                  ? FileImage(File(sessionData.profileImagePath!))
-                  : const AssetImage('assets/profile_pic.png') as ImageProvider,
+              backgroundImage: sessionData.profileImageUrl != null
+                  ? NetworkImage(sessionData.profileImageUrl!)
+                  : (sessionData.profileImagePath != null
+                      ? FileImage(File(sessionData.profileImagePath!))
+                      : const AssetImage('assets/profile_pic.png')) as ImageProvider,
             ),
           ],
         );
@@ -1248,6 +1254,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   _selectedDate = pickedDate;
                                   sessionData.selectedDate = pickedDate;
                                 });
+                                _loadTodayMeals();
                               }
                             });
                           },

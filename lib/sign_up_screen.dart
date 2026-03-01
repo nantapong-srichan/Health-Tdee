@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/gestures.dart';
+import 'package:image_picker/image_picker.dart';
 import 'services/auth_service.dart';
 import 'home_screen.dart';
 import 'login_screen.dart';
@@ -19,6 +21,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _confirmPasswordController = TextEditingController();
   final _dobController = TextEditingController();
   final _authService = AuthService();
+  final _imagePicker = ImagePicker();
+  File? _selectedProfileImage;
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -103,6 +107,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
 
       if (result['success']) {
+        // Upload profile image if selected
+        if (_selectedProfileImage != null) {
+          try {
+            await _authService.uploadProfileImage(_selectedProfileImage!);
+          } catch (e) {
+            // Continue even if image upload fails
+            print('Image upload error: $e');
+          }
+        }
+
         // Auto login after signup
         final loginResult = await _authService.login(
           email: _emailController.text.trim(),
@@ -128,6 +142,32 @@ class _SignUpScreenState extends State<SignUpScreen> {
         setState(() {
           _isLoading = false;
         });
+      }
+    }
+  }
+
+  Future<void> _pickProfileImage() async {
+    try {
+      final XFile? pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+        maxWidth: 1024,
+        maxHeight: 1024,
+      );
+
+      if (pickedFile != null) {
+        setState(() {
+          _selectedProfileImage = File(pickedFile.path);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('ไม่สามารถเลือกรูปภาพได้: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -164,6 +204,61 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   ),
                 ),
               ),
+              const SizedBox(height: 36),
+
+              // Profile Image Picker
+              Center(
+                child: GestureDetector(
+                  onTap: _isLoading ? null : _pickProfileImage,
+                  child: Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 50,
+                        backgroundColor: Colors.grey[300],
+                        backgroundImage: _selectedProfileImage != null
+                            ? FileImage(_selectedProfileImage!)
+                            : null,
+                        child: _selectedProfileImage == null
+                            ? Icon(
+                                Icons.camera_alt,
+                                color: Colors.grey[600],
+                                size: 32,
+                              )
+                            : null,
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Color(0xFFFABB5A),
+                          ),
+                          padding: const EdgeInsets.all(6),
+                          child: const Icon(
+                            Icons.add,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (_selectedProfileImage != null)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text(
+                      'รูปโปรไฟล์ถูกเลือก',
+                      style: GoogleFonts.kanit(
+                        fontSize: 12,
+                        color: Colors.green[700],
+                      ),
+                    ),
+                  ),
+                ),
               const SizedBox(height: 36),
 
               // Error Message

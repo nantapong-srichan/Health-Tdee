@@ -78,6 +78,13 @@ const userSchema = new mongoose.Schema(
       default: 'moderate',
     },
 
+    // Profile Image
+    profileImageUrl: {
+      type: String,
+      default: null,
+      description: 'URL to user profile image in GCS',
+    },
+
     // Dietary Goals
     dailyCalorieGoal: {
       type: Number,

@@ -349,4 +349,129 @@ exports.changePassword = async (req, res, next) => {
   }
 };
 
+// Change Email
+exports.changeEmail = async (req, res, next) => {
+  try {
+    const { newEmail, password } = req.body;
+
+    const user = await User.findById(req.userId).select('+password');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    // Check if new email is already in use
+    const emailExists = await User.findOne({ email: newEmail });
+    if (emailExists) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email already in use',
+      });
+    }
+
+    // Verify password
+    const isPasswordCorrect = await user.comparePassword(password);
+
+    if (!isPasswordCorrect) {
+      return res.status(401).json({
+        success: false,
+        message: 'Password is incorrect',
+      });
+    }
+
+    // Update email
+    user.email = newEmail;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Email changed successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Upload Profile Image
+exports.uploadProfileImage = async (req, res, next) => {
+  try {
+    const { Storage } = require('@google-cloud/storage');
+    
+    // Initialize GCS
+    const storage = new Storage({
+      projectId: process.env.GCP_PROJECT_ID,
+      keyFilename: process.env.GCP_KEY_FILE,
+    });
+
+    const bucket = storage.bucket(process.env.GCP_BUCKET_NAME);
+
+    // Check if file exists
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No image provided',
+      });
+    }
+
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    // Generate filename: imgprofile/{userId}_{timestamp}_{originalname}
+    const timestamp = Date.now();
+    const originalName = req.file.originalname;
+    const filename = `imgprofile/${req.userId}_${timestamp}_${originalName}`;
+
+    // Create file object
+    const file = bucket.file(filename);
+
+    // Upload to GCS
+    await new Promise((resolve, reject) => {
+      const stream = file.createWriteStream({
+        metadata: {
+          contentType: req.file.mimetype,
+        },
+      });
+
+      stream.on('error', (err) => {
+        console.error('Upload error:', err);
+        reject(err);
+      });
+
+      stream.on('finish', () => {
+        resolve();
+      });
+
+      stream.end(req.file.buffer);
+    });
+
+    // Generate public URL
+    const publicUrl = `https://storage.googleapis.com/${process.env.GCP_BUCKET_NAME}/${filename}`;
+
+    // Update user profile image URL
+    user.profileImageUrl = publicUrl;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Profile image uploaded successfully',
+      profileImageUrl: publicUrl,
+    });
+  } catch (error) {
+    console.error('Profile image upload error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to upload profile image',
+      error: error.message,
+    });
+  }
+};
+
 module.exports.generateToken = generateToken;

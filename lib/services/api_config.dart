@@ -15,6 +15,8 @@ class ApiConfig {
   static const String authProfile = '$baseUrl/auth/me';
   static const String authProfileUpdate = '$baseUrl/auth/profile';
   static const String authChangePassword = '$baseUrl/auth/change-password';
+  static const String authChangeEmail = '$baseUrl/auth/change-email';
+  static const String authUploadProfileImage = '$baseUrl/auth/upload-profile-image';
   
   static const String mealSave = '$baseUrl/meals';
   static const String mealHistory = '$baseUrl/meals';

@@ -5,6 +5,7 @@ class SessionData with ChangeNotifier {
   // ข้อมูลผู้ใช้
   String? userName;
   String? profileImagePath;
+  String? profileImageUrl; // URL รูปโปรไฟล์จากฐานข้อมูล
   
   //ข้อมูลจากช่องกรอกข้อความ
   String? dateOfBirth;
@@ -59,6 +60,11 @@ class SessionData with ChangeNotifier {
 
   void updateProfileImagePath(String path) {
     profileImagePath = path;
+    notifyListeners();
+  }
+
+  void updateProfileImageUrl(String? url) {
+    profileImageUrl = url;
     notifyListeners();
   }
 

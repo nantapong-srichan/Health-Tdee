@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:http/http.dart' as http;
 import 'api_service.dart';
 import 'api_config.dart';
 
@@ -216,6 +218,87 @@ class AuthService {
         return {
           'success': false,
           'message': error['message'] ?? 'Failed to change password',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Error: $e',
+      };
+    }
+  }
+  
+  // Change email
+  Future<Map<String, dynamic>> changeEmail({
+    required String newEmail,
+    required String password,
+  }) async {
+    try {
+      final response = await _apiService.makeRequest(
+        'POST',
+        ApiConfig.authChangeEmail,
+        body: {
+          'newEmail': newEmail,
+          'password': password,
+        },
+      );
+      
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'message': 'Email changed successfully',
+        };
+      } else {
+        final error = jsonDecode(response.body);
+        return {
+          'success': false,
+          'message': error['message'] ?? 'Failed to change email',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Error: $e',
+      };
+    }
+  }
+  
+  // Upload Profile Image
+  Future<Map<String, dynamic>> uploadProfileImage(File imageFile) async {
+    try {
+      final token = await _apiService.getToken();
+      if (token == null) {
+        return {
+          'success': false,
+          'message': 'Token not found',
+        };
+      }
+
+      final uri = Uri.parse(ApiConfig.authUploadProfileImage);
+      final request = http.MultipartRequest('POST', uri)
+        ..headers['Authorization'] = 'Bearer $token'
+        ..files.add(
+          await http.MultipartFile.fromPath(
+            'profileImage',
+            imageFile.path,
+          ),
+        );
+
+      final response = await request.send();
+      final responseBody = await response.stream.bytesToString();
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(responseBody);
+        return {
+          'success': true,
+          'message': data['message'] ?? 'Profile image uploaded successfully',
+          'profileImageUrl': data['profileImageUrl'],
+        };
+      } else {
+        final error = jsonDecode(responseBody);
+        return {
+          'success': false,
+          'message': error['message'] ?? 'Failed to upload profile image',
         };
       }
     } catch (e) {

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 import 'services/auth_service.dart';
 import 'services/bmr_calculator.dart';
 import 'session_data.dart';
@@ -15,12 +17,86 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final _authService = AuthService();
+  final _imagePicker = ImagePicker();
   Map<String, dynamic>? _userProfile;
 
   @override
   void initState() {
     super.initState();
     _loadUserProfile();
+  }
+
+  Future<void> _uploadProfileImage() async {
+    try {
+      final XFile? pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+        maxWidth: 1024,
+        maxHeight: 1024,
+      );
+
+      if (pickedFile == null) return;
+
+      final File imageFile = File(pickedFile.path);
+
+      // Show loading dialog
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Dialog(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 50,
+                  height: 50,
+                  child: CircularProgressIndicator(),
+                ),
+                SizedBox(height: 16),
+                Text('กำลังอัพโหลดรูปโปรไฟล์...'),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // Upload to backend
+      final result = await _authService.uploadProfileImage(imageFile);
+
+      if (!mounted) return;
+      Navigator.pop(context); // Close loading dialog
+
+      if (result['success']) {
+        // Reload user profile
+        await _loadUserProfile();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('อัพโหลดรูปโปรไฟล์สำเร็จ'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'เกิดข้อผิดพลาด'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('เกิดข้อผิดพลาด: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _loadUserProfile() async {
@@ -93,9 +169,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        const CircleAvatar(
-                          radius: 50,
-                          backgroundImage: AssetImage('assets/profile_pic.png'),
+                        GestureDetector(
+                          onTap: () => _uploadProfileImage(),
+                          child: Stack(
+                            children: [
+                              CircleAvatar(
+                                radius: 50,
+                                backgroundImage: _userProfile != null && 
+                                                 _userProfile!['user'] != null &&
+                                                 _userProfile!['user']['profileImageUrl'] != null
+                                    ? NetworkImage(_userProfile!['user']['profileImageUrl'] as String)
+                                    : const AssetImage('assets/profile_pic.png') as ImageProvider,
+                              ),
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: Container(
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Color(0xFFFABB5A),
+                                  ),
+                                  padding: const EdgeInsets.all(8),
+                                  child: const Icon(
+                                    Icons.camera_alt,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                         const SizedBox(height: 16),
                         // Show username from database
@@ -364,6 +467,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _editEmail(BuildContext context, TextTheme theme) {
+    final newEmailController = TextEditingController();
+    final passwordController = TextEditingController();
+    bool _isLoading = false;
+    String? _emailError;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -371,60 +479,253 @@ class _ProfileScreenState extends State<ProfileScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 20,
-            right: 20,
-            top: 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'แก้ไขอีเมล',
-                style: theme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                left: 20,
+                right: 20,
+                top: 20,
               ),
-              const SizedBox(height: 20),
-              TextField(
-                decoration: InputDecoration(
-                  labelText: 'อีเมลใหม่',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'แก้ไขอีเมล',
+                      style: theme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 20),
+                    TextField(
+                      controller: newEmailController,
+                      enabled: !_isLoading,
+                      decoration: InputDecoration(
+                        labelText: 'อีเมลใหม่',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          if (value.isEmpty) {
+                            _emailError = null;
+                          } else if (!RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$').hasMatch(value)) {
+                            _emailError = 'รูปแบบอีเมลไม่ถูกต้อง';
+                          } else {
+                            _emailError = null;
+                          }
+                        });
+                      },
+                    ),
+                    if (_emailError != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Text(
+                          _emailError!,
+                          style: const TextStyle(color: Colors.red, fontSize: 12),
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: passwordController,
+                      obscureText: true,
+                      enabled: !_isLoading,
+                      decoration: InputDecoration(
+                        labelText: 'รหัสผ่านเพื่อยืนยัน',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: (_isLoading || _emailError != null || newEmailController.text.isEmpty || passwordController.text.isEmpty)
+                            ? null
+                            : () async {
+                                setState(() {
+                                  _isLoading = true;
+                                });
+
+                                try {
+                                  print('=== DEBUG: Changing email ===');
+                                  print('New email: ${newEmailController.text}');
+                                  print('Password length: ${passwordController.text.length}');
+
+                                  // Call API to change email
+                                  final result = await _authService.changeEmail(
+                                    newEmail: newEmailController.text,
+                                    password: passwordController.text,
+                                  );
+
+                                  print('API Response: $result');
+                                  print('Success: ${result['success']}');
+
+                                  if (mounted) {
+                                    if (result['success']) {
+                                      print('Email changed successfully');
+                                      
+                                      // Clear controllers
+                                      newEmailController.clear();
+                                      passwordController.clear();
+                                      
+                                      // Reload user profile
+                                      await _loadUserProfile();
+                                      
+                                      // Show success dialog
+                                      if (mounted) {
+                                        showDialog(
+                                          context: context,
+                                          builder: (context) => Dialog(
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(20),
+                                            ),
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(24),
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Container(
+                                                    width: 80,
+                                                    height: 80,
+                                                    decoration: const BoxDecoration(
+                                                      shape: BoxShape.circle,
+                                                      color: Color(0xFFFABB5A),
+                                                    ),
+                                                    child: const Icon(
+                                                      Icons.check_rounded,
+                                                      color: Colors.white,
+                                                      size: 48,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 20),
+                                                  Text(
+                                                    'สำเร็จ',
+                                                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                                      fontWeight: FontWeight.bold,
+                                                      color: Colors.black87,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 12),
+                                                  Text(
+                                                    'เปลี่ยนอีเมลสำเร็จแล้ว',
+                                                    textAlign: TextAlign.center,
+                                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                                      color: Colors.grey[600],
+                                                      height: 1.5,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 24),
+                                                  SizedBox(
+                                                    width: double.infinity,
+                                                    child: ElevatedButton(
+                                                      onPressed: () {
+                                                        Navigator.pop(context); // Close dialog
+                                                        Navigator.pop(context); // Close modal
+                                                      },
+                                                      style: ElevatedButton.styleFrom(
+                                                        backgroundColor: const Color(0xFFFABB5A),
+                                                        padding: const EdgeInsets.symmetric(vertical: 14),
+                                                        shape: RoundedRectangleBorder(
+                                                          borderRadius: BorderRadius.circular(12),
+                                                        ),
+                                                      ),
+                                                      child: const Text(
+                                                        'ปิด',
+                                                        style: TextStyle(
+                                                          color: Colors.white,
+                                                          fontWeight: FontWeight.w600,
+                                                          fontSize: 16,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      } else {
+                                        Navigator.pop(context);
+                                      }
+                                    } else {
+                                      print('Change email failed: ${result['message']}');
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(result['message'] ?? 'เกิดข้อผิดพลาด'),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                } catch (e) {
+                                  print('ERROR: $e');
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('เกิดข้อผิดพลาด: $e'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                } finally {
+                                  if (mounted) {
+                                    setState(() {
+                                      _isLoading = false;
+                                    });
+                                  }
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: (_isLoading || _emailError != null || newEmailController.text.isEmpty || passwordController.text.isEmpty)
+                              ? Colors.grey[400]
+                              : const Color(0xFFFABB5A),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: _isLoading
+                            ? SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.grey[600]!,
+                                  ),
+                                ),
+                              )
+                            : Text(
+                                'บันทึก',
+                                style: theme.titleMedium?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
                 ),
               ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFABB5A),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  child: Text(
-                    'บันทึก',
-                    style: theme.titleMedium?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
-          ),
+            );
+          },
         );
       },
     );
   }
 
   void _changePassword(BuildContext context, TextTheme theme) {
+    final oldPasswordController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    bool _isLoading = false;
+    String? _passwordError;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -432,75 +733,255 @@ class _ProfileScreenState extends State<ProfileScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 20,
-            right: 20,
-            top: 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'เปลี่ยนรหัสผ่าน',
-                style: theme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                left: 20,
+                right: 20,
+                top: 20,
               ),
-              const SizedBox(height: 20),
-              TextField(
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: 'รหัสผ่านเก่า',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: 'รหัสผ่านใหม่',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: 'ยืนยันรหัสผ่าน',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFABB5A),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'เปลี่ยนรหัสผ่าน',
+                      style: theme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                     ),
-                  ),
-                  child: Text(
-                    'บันทึก',
-                    style: theme.titleMedium?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+                    const SizedBox(height: 20),
+                    TextField(
+                      controller: oldPasswordController,
+                      obscureText: true,
+                      enabled: !_isLoading,
+                      decoration: InputDecoration(
+                        labelText: 'รหัสผ่านเก่า',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: newPasswordController,
+                      obscureText: true,
+                      enabled: !_isLoading,
+                      decoration: InputDecoration(
+                        labelText: 'รหัสผ่านใหม่',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          if (newPasswordController.text != confirmPasswordController.text) {
+                            _passwordError = 'รหัสผ่านไม่ตรงกัน';
+                          } else {
+                            _passwordError = null;
+                          }
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: confirmPasswordController,
+                      obscureText: true,
+                      enabled: !_isLoading,
+                      decoration: InputDecoration(
+                        labelText: 'ยืนยันรหัสผ่าน',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          if (newPasswordController.text != confirmPasswordController.text) {
+                            _passwordError = 'รหัสผ่านไม่ตรงกัน';
+                          } else {
+                            _passwordError = null;
+                          }
+                        });
+                      },
+                    ),
+                    if (_passwordError != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Text(
+                          _passwordError!,
+                          style: const TextStyle(color: Colors.red, fontSize: 12),
+                        ),
+                      ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: (_isLoading || _passwordError != null || oldPasswordController.text.isEmpty || newPasswordController.text.isEmpty)
+                            ? null
+                            : () async {
+                                setState(() {
+                                  _isLoading = true;
+                                });
+
+                                try {
+                                  print('=== DEBUG: Changing password ===');
+                                  print('Old password length: ${oldPasswordController.text.length}');
+                                  print('New password length: ${newPasswordController.text.length}');
+
+                                  // Call API to change password
+                                  final result = await _authService.changePassword(
+                                    currentPassword: oldPasswordController.text,
+                                    newPassword: newPasswordController.text,
+                                  );
+
+                                  print('API Response: $result');
+                                  print('Success: ${result['success']}');
+
+                                  if (mounted) {
+                                    if (result['success']) {
+                                      print('Password changed successfully');
+                                      
+                                      // Clear controllers
+                                      oldPasswordController.clear();
+                                      newPasswordController.clear();
+                                      confirmPasswordController.clear();
+                                      
+                                      // Show success dialog
+                                      showDialog(
+                                        context: context,
+                                        builder: (context) => Dialog(
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(20),
+                                          ),
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(24),
+                                            child: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Container(
+                                                  width: 80,
+                                                  height: 80,
+                                                  decoration: const BoxDecoration(
+                                                    shape: BoxShape.circle,
+                                                    color: Color(0xFFFABB5A),
+                                                  ),
+                                                  child: const Icon(
+                                                    Icons.check_rounded,
+                                                    color: Colors.white,
+                                                    size: 48,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 20),
+                                                Text(
+                                                  'สำเร็จ',
+                                                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.black87,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 12),
+                                                Text(
+                                                  'เปลี่ยนรหัสผ่านสำเร็จแล้ว',
+                                                  textAlign: TextAlign.center,
+                                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                                    color: Colors.grey[600],
+                                                    height: 1.5,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 24),
+                                                SizedBox(
+                                                  width: double.infinity,
+                                                  child: ElevatedButton(
+                                                    onPressed: () {
+                                                      Navigator.pop(context); // Close dialog
+                                                      Navigator.pop(context); // Close modal
+                                                    },
+                                                    style: ElevatedButton.styleFrom(
+                                                      backgroundColor: const Color(0xFFFABB5A),
+                                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius: BorderRadius.circular(12),
+                                                      ),
+                                                    ),
+                                                    child: const Text(
+                                                      'ปิด',
+                                                      style: TextStyle(
+                                                        color: Colors.white,
+                                                        fontWeight: FontWeight.w600,
+                                                        fontSize: 16,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    } else {
+                                      print('Change password failed: ${result['message']}');
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(result['message'] ?? 'เกิดข้อผิดพลาด'),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                } catch (e) {
+                                  print('ERROR: $e');
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('เกิดข้อผิดพลาด: $e'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                } finally {
+                                  if (mounted) {
+                                    setState(() {
+                                      _isLoading = false;
+                                    });
+                                  }
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: (_isLoading || _passwordError != null || oldPasswordController.text.isEmpty || newPasswordController.text.isEmpty)
+                              ? Colors.grey[400]
+                              : const Color(0xFFFABB5A),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: _isLoading
+                            ? SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.grey[600]!,
+                                  ),
+                                ),
+                              )
+                            : Text(
+                                'บันทึก',
+                                style: theme.titleMedium?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
                 ),
               ),
-              const SizedBox(height: 20),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -809,13 +1290,77 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       await _loadUserProfile();
 
                                       if (mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(
-                                            content: Text('บันทึกข้อมูลสำเร็จ'),
-                                            backgroundColor: Colors.green,
+                                        showDialog(
+                                          context: context,
+                                          builder: (context) => Dialog(
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(20),
+                                            ),
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(24),
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Container(
+                                                    width: 80,
+                                                    height: 80,
+                                                    decoration: const BoxDecoration(
+                                                      shape: BoxShape.circle,
+                                                      color: Color(0xFFFABB5A),
+                                                    ),
+                                                    child: const Icon(
+                                                      Icons.check_rounded,
+                                                      color: Colors.white,
+                                                      size: 48,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 20),
+                                                  Text(
+                                                    'สำเร็จ',
+                                                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                                      fontWeight: FontWeight.bold,
+                                                      color: Colors.black87,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 12),
+                                                  Text(
+                                                    'บันทึกข้อมูลสำเร็จ',
+                                                    textAlign: TextAlign.center,
+                                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                                      color: Colors.grey[600],
+                                                      height: 1.5,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 24),
+                                                  SizedBox(
+                                                    width: double.infinity,
+                                                    child: ElevatedButton(
+                                                      onPressed: () {
+                                                        Navigator.pop(context); // Close dialog
+                                                        Navigator.pop(context); // Close modal
+                                                      },
+                                                      style: ElevatedButton.styleFrom(
+                                                        backgroundColor: const Color(0xFFFABB5A),
+                                                        padding: const EdgeInsets.symmetric(vertical: 14),
+                                                        shape: RoundedRectangleBorder(
+                                                          borderRadius: BorderRadius.circular(12),
+                                                        ),
+                                                      ),
+                                                      child: const Text(
+                                                        'ปิด',
+                                                        style: TextStyle(
+                                                          color: Colors.white,
+                                                          fontWeight: FontWeight.w600,
+                                                          fontSize: 16,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
                                           ),
                                         );
-                                        Navigator.pop(context);
                                       }
                                     } else {
                                       print('Update failed: ${result['message']}');
