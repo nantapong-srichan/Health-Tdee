@@ -24,7 +24,7 @@ class NotificationService {
       final offsetHours = offset.inHours;
       final offsetMinutes = offset.inMinutes % 60;
       
-      print('📍 Device offset: UTC${offsetHours > 0 ? '+' : ''}$offsetHours:${offsetMinutes.toString().padLeft(2, '0')}');
+      print('Device offset: UTC${offsetHours > 0 ? '+' : ''}$offsetHours:${offsetMinutes.toString().padLeft(2, '0')}');
       
       // List of common IANA timezone names to try based on offset
       // UTC+7 is Asia/Bangkok, Asia/Ho_Chi_Minh, etc.
@@ -44,7 +44,7 @@ class NotificationService {
         try {
           final loc = tz.getLocation(tzName);
           tz.setLocalLocation(loc);
-          print('✅ Timezone set to: $tzName');
+          print('Timezone set to: $tzName');
           tzSet = true;
           break;
         } catch (e) {
@@ -53,10 +53,10 @@ class NotificationService {
       }
       
       if (!tzSet) {
-        print('⚠️ Could not set timezone to any candidate, tz.local may be UTC');
+        print('Could not set timezone to any candidate, tz.local may be UTC');
       }
     } catch (e, st) {
-      print('❌ Error setting timezone: $e\n$st');
+      print('Error setting timezone: $e\n$st');
     }
 
     const AndroidInitializationSettings androidSettings =
@@ -102,7 +102,7 @@ class NotificationService {
         ?.createNotificationChannel(channel);
 
     // TEST: Show immediate test notification to verify system works
-    print('📢 NOTIFICATION TEST: Showing test notification...');
+    print('NOTIFICATION TEST: Showing test notification...');
     await _showTestNotification();
   }
 
@@ -110,13 +110,13 @@ class NotificationService {
     final now = DateTime.now();
     var scheduledDate = DateTime(now.year, now.month, now.day, hour, minute);
 
-    print('⏰ DEBUG: Current time: $now');
-    print('⏰ DEBUG: Scheduled time (before adjustment): $scheduledDate');
+    print('DEBUG: Current time: $now');
+    print('DEBUG: Scheduled time (before adjustment): $scheduledDate');
 
     // ถ้าเวลาผ่านไปแล้วในวันนี้ ให้ตั้งสำหรับพรุ่งนี้
     if (scheduledDate.isBefore(now)) {
       scheduledDate = scheduledDate.add(const Duration(days: 1));
-      print('⏰ DEBUG: Time passed today, scheduled for tomorrow: $scheduledDate');
+      print('DEBUG: Time passed today, scheduled for tomorrow: $scheduledDate');
     }
 
     const AndroidNotificationDetails androidDetails =
@@ -139,10 +139,10 @@ class NotificationService {
     );
 
     final tzDateTime = tz.TZDateTime.from(scheduledDate, tz.local);
-    print('📍 tz.local offset: ${tz.local.name}');
-    print('⏰ DEBUG: TZDateTime: $tzDateTime');
-    print('⏰ DEBUG: tz.local: ${tz.local}');
-    print('⏰ DEBUG: Scheduled ID: ${hour * 100 + minute}');
+    print('tz.local offset: ${tz.local.name}');
+    print('DEBUG: TZDateTime: $tzDateTime');
+    print('DEBUG: tz.local: ${tz.local}');
+    print('DEBUG: Scheduled ID: ${hour * 100 + minute}');
 
     try {
       await _notificationsPlugin.zonedSchedule(
@@ -156,9 +156,9 @@ class NotificationService {
         matchDateTimeComponents: DateTimeComponents.time,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       );
-      print('✅ Scheduled insulin reminder for $hour:${minute.toString().padLeft(2, '0')}');
+      print('Scheduled insulin reminder for $hour:${minute.toString().padLeft(2, '0')}');
     } catch (e) {
-      print('❌ ERROR scheduling reminder: $e');
+      print('ERROR scheduling reminder: $e');
     }
   }
 
@@ -198,9 +198,9 @@ class NotificationService {
         'ถ้าคุณเห็นข้อความนี้ ระบบแจ้งเตือนทำงานได้',
         notificationDetails,
       );
-      print('✅ Test notification shown successfully');
+      print('Test notification shown successfully');
     } catch (e) {
-      print('❌ ERROR showing test notification: $e');
+      print('ERROR showing test notification: $e');
     }
   }
 }

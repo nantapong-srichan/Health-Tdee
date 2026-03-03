@@ -15,7 +15,7 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserver {
   final _authService = AuthService();
   final _imagePicker = ImagePicker();
   Map<String, dynamic>? _userProfile;
@@ -23,7 +23,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadUserProfile();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Reload profile data when app resumes (comes back from register screen)
+      _loadUserProfile();
+    }
   }
 
   Future<void> _uploadProfileImage() async {
@@ -110,10 +125,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         print('User diseases type: ${userProfile['diseases'].runtimeType}');
         print('Diseases is empty: ${(userProfile['diseases'] as List?)?.isEmpty}');
         print('Diabetes in diseases: ${(userProfile['diseases'] as List?)?.contains('diabetes')}');
+        print('Profile image URL: ${userProfile['profileImageUrl']}');
       }
-      setState(() {
-        _userProfile = profile;
-      });
+      if (mounted) {
+        setState(() {
+          _userProfile = profile;
+        });
+      }
     } catch (e) {
       // Handle error silently
       if (mounted) {

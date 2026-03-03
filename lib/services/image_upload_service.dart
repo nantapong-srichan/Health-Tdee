@@ -13,9 +13,9 @@ class ImageUploadService {
   /// ส่งคืน URL ของรูปภาพที่อัปโหลด หรือ null หากล้มเหลว
   Future<String?> uploadFoodImage(File imageFile) async {
     try {
-      print('🔄 [ImageUploadService] Starting image upload...');
-      print('📁 Image file: ${imageFile.path}');
-      print('📦 File size: ${imageFile.lengthSync()} bytes');
+      print('[ImageUploadService] Starting image upload...');
+      print('Image file: ${imageFile.path}');
+      print('File size: ${imageFile.lengthSync()} bytes');
 
       // สร้าง multipart request
       var request = http.MultipartRequest(
@@ -41,18 +41,18 @@ class ImageUploadService {
         ),
       );
 
-      print('✅ Image file added to request');
+      print('Image file added to request');
 
       // ส่ง request ไปยัง server
       var response = await request.send();
 
-      print('📡 Server responded with status: ${response.statusCode}');
+      print('Server responded with status: ${response.statusCode}');
 
       // ตรวจสอบ response
       if (response.statusCode == 201) {
         final responseBody = await response.stream.bytesToString();
-        print('✅ Image uploaded successfully');
-        print('📨 Response: $responseBody');
+        print('Image uploaded successfully');
+        print('Response: $responseBody');
         
         // แยก URL จาก response (ต้องปรับตามโครงสร้าง response ของ backend)
         // ถ้า backend ส่ง JSON เช่น { "meal": { "imageUrl": "..." } }
@@ -61,12 +61,12 @@ class ImageUploadService {
         return 'Success'; // ส่งคืน success เพื่อให้ UI ทราบว่าอัปโหลดสำเร็จ
       } else {
         final errorBody = await response.stream.bytesToString();
-        print('❌ Upload failed with status ${response.statusCode}');
-        print('📨 Error: $errorBody');
+        print('Upload failed with status ${response.statusCode}');
+        print('Error: $errorBody');
         throw Exception('Upload failed: ${response.statusCode}');
       }
     } catch (e) {
-      print('❌ [ImageUploadService] Error: $e');
+      print('[ImageUploadService] Error: $e');
       return null;
     }
   }
@@ -82,10 +82,10 @@ class ImageUploadService {
     String? notes,
   }) async {
     try {
-      print('🔄 [ImageUploadService] Starting image + meal data upload...');
-      print('📁 Image file path: ${imageFile.path}');
-      print('📦 File exists: ${imageFile.existsSync()}');
-      print('📦 File size: ${imageFile.lengthSync()} bytes');
+      print('[ImageUploadService] Starting image + meal data upload...');
+      print('Image file path: ${imageFile.path}');
+      print('File exists: ${imageFile.existsSync()}');
+      print('File size: ${imageFile.lengthSync()} bytes');
 
       // สร้าง multipart request
       var request = http.MultipartRequest(
@@ -93,13 +93,13 @@ class ImageUploadService {
         Uri.parse('$baseUrl/api/meals'),
       );
 
-      print('🔗 Request URL: $baseUrl/api/meals');
+      print('Request URL: $baseUrl/api/meals');
 
       // เพิ่ม token สำหรับ authentication
       final storage = const FlutterSecureStorage();
       final token = await storage.read(key: 'jwt_token');
 
-      print('🔐 Token exists: ${token != null}');
+      print('Token exists: ${token != null}');
 
       if (token == null) {
         throw Exception('No authentication token found');
@@ -108,7 +108,7 @@ class ImageUploadService {
       request.headers['Authorization'] = 'Bearer $token';
 
       // เพิ่มไฟล์รูปภาพ
-      print('📤 Adding image file to request...');
+      print('Adding image file to request...');
       request.files.add(
         await http.MultipartFile.fromPath(
           'image',
@@ -116,7 +116,7 @@ class ImageUploadService {
         ),
       );
 
-      print('✅ Image file added successfully');
+      print('Image file added successfully');
 
       // เพิ่มข้อมูล meal เป็น form fields
       request.fields['foodName'] = foodName;
@@ -135,40 +135,40 @@ class ImageUploadService {
         request.fields['notes'] = notes;
       }
 
-      print('✅ All data added to request');
-      print('📊 Request fields: ${request.fields}');
-      print('📊 Request files: ${request.files.map((f) => f.filename).toList()}');
+      print('All data added to request');
+      print('Request fields: ${request.fields}');
+      print('Request files: ${request.files.map((f) => f.filename).toList()}');
 
       // ส่ง request ไปยัง server
-      print('🚀 Sending request to server...');
+      print('Sending request to server...');
       var response = await request.send();
 
-      print('📡 Server responded with status: ${response.statusCode}');
+      print('Server responded with status: ${response.statusCode}');
 
       if (response.statusCode == 201) {
         final responseBody = await response.stream.bytesToString();
-        print('✅ Meal with image uploaded successfully');
-        print('📨 Response: $responseBody');
+        print('Meal with image uploaded successfully');
+        print('Response: $responseBody');
         
         // Parse response to extract imageUrl
         try {
           final json = jsonDecode(responseBody) as Map<String, dynamic>;
           final imageUrl = json['meal']?['imageUrl'] as String?;
-          print('🖼️ Image URL from response: $imageUrl');
+          print('Image URL from response: $imageUrl');
           return imageUrl ?? 'Success'; // Return actual URL or Success if not present
         } catch (e) {
-          print('⚠️ Could not parse imageUrl from response: $e');
+          print('Could not parse imageUrl from response: $e');
           return 'Success';
         }
       } else {
         final errorBody = await response.stream.bytesToString();
-        print('❌ Upload failed with status ${response.statusCode}');
-        print('📨 Error: $errorBody');
+        print('Upload failed with status ${response.statusCode}');
+        print('Error: $errorBody');
         throw Exception('Upload failed: ${response.statusCode}');
       }
     } catch (e) {
-      print('❌ [ImageUploadService] Error: $e');
-      print('🔍 Stack trace: ${StackTrace.current}');
+      print('[ImageUploadService] Error: $e');
+      print('Stack trace: ${StackTrace.current}');
       return null;
     }
   }

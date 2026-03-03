@@ -26,6 +26,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _weightController = TextEditingController();
   final _heightController = TextEditingController();
   final _authService = AuthService();
+  DateTime? _selectedDate;
   
   XFile? _selectedImage;
   bool _isLoading = false;
@@ -60,6 +61,38 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
+  Future<void> _pickBirthDate() async {
+    final DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate ?? DateTime.now(),
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+    );
+
+    if (pickedDate != null) {
+      setState(() {
+        _selectedDate = pickedDate;
+        _dobController.text =
+            '${pickedDate.day.toString().padLeft(2, '0')}/${pickedDate.month.toString().padLeft(2, '0')}/${pickedDate.year}';
+        _calculateAge();
+      });
+    }
+  }
+
+  void _calculateAge() {
+    if (_selectedDate == null) return;
+
+    final now = DateTime.now();
+    int age = now.year - _selectedDate!.year;
+
+    if (now.month < _selectedDate!.month ||
+        (now.month == _selectedDate!.month && now.day < _selectedDate!.day)) {
+      age--;
+    }
+
+    _ageController.text = age.toString();
+  }
+
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
@@ -77,7 +110,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _emailController.text.isEmpty ||
         _passwordController.text.isEmpty ||
         _confirmPasswordController.text.isEmpty ||
-        _dobController.text.isEmpty ||
+        _selectedDate == null ||
         _ageController.text.isEmpty ||
         _selectedGender == null ||
         _weightController.text.isEmpty ||
@@ -117,9 +150,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     // Validate date format dd/mm/yyyy
-    if (!RegExp(r'^\d{2}/\d{2}/\d{4}$').hasMatch(_dobController.text)) {
+    if (_selectedDate == null) {
       setState(() {
-        _errorMessage = 'วันเกิดต้องเป็นรูปแบบ dd/mm/yyyy เท่านั้น';
+        _errorMessage = 'กรุณาเลือกวันเกิด';
       });
       return;
     }
@@ -199,8 +232,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
             }
           }
           
+          // Upload profile image if selected
           if (_selectedImage != null) {
-            sessionData.updateProfileImagePath(_selectedImage!.path);
+            try {
+              final uploadResult = await _authService.uploadProfileImage(
+                File(_selectedImage!.path),
+              );
+              if (uploadResult['success']) {
+                sessionData.updateProfileImagePath(_selectedImage!.path);
+              }
+            } catch (e) {
+              print('Error uploading profile image: $e');
+            }
           }
           
           // Show success message
@@ -405,20 +448,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
               // Date of Birth Field
               _buildLabel('วันเกิด'),
-              _buildTextField(
-                controller: _dobController,
-                hintText: 'dd/mm/yyyy (เช่น 05/07/2003)',
-                keyboardType: TextInputType.datetime,
-                icon: Icons.calendar_today_outlined,
+              GestureDetector(
+                onTap: _isLoading ? null : _pickBirthDate,
+                child: AbsorbPointer(
+                  child: _buildTextField(
+                    controller: _dobController,
+                    hintText: 'เลือกวันเกิด',
+                    icon: Icons.calendar_today_outlined,
+                  ),
+                ),
               ),
               const SizedBox(height: 16),
 
-              // Age Field
+              // Age Field (Auto-calculated)
               _buildLabel('อายุ'),
-              _buildTextField(
-                controller: _ageController,
-                hintText: 'อายุ (เช่น 21)',
-                keyboardType: TextInputType.number,
+              AbsorbPointer(
+                child: _buildTextField(
+                  controller: _ageController,
+                  hintText: 'คำนวณอายุอัตโนมัติ',
+                  keyboardType: TextInputType.number,
+                ),
               ),
               const SizedBox(height: 24),
 
