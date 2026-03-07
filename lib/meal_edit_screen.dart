@@ -1,24 +1,24 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'services/meal_service.dart';
-import 'services/api_service.dart';
+import 'services/image_upload_service.dart';
 import 'session_data.dart';
-import 'home_screen.dart';
 
 class MealEditScreen extends StatefulWidget {
-  final XFile imageFile;
+  final String mealId; // Required - editing only
   final String foodName;
-  final double confidence;
-  final double estimatedWeight;
+  final String imagePath;
+  final Map<String, double> nutritionValues; // {calories, protein, carbs, fat}
+  final double estimatedWeight; // Weight in grams
 
   const MealEditScreen({
     super.key,
-    required this.imageFile,
+    required this.mealId,
     required this.foodName,
-    required this.confidence,
+    required this.imagePath,
+    required this.nutritionValues,
     required this.estimatedWeight,
   });
 
@@ -31,106 +31,530 @@ class _MealEditScreenState extends State<MealEditScreen> {
   late double _protein;
   late double _carbs;
   late double _fat;
-  late double _fiber;
-  late double _sodium;
-  bool _isLoading = false;
+  late double _estimatedWeight;
+  late double _baseCalories;
+  late double _baseProtein;
+  late double _baseCarbs;
+  late double _baseFat;
+  bool _isUpdating = false;
+  late final ImageUploadService _imageUploadService;
 
   @override
   void initState() {
     super.initState();
-    // Default values - you can calculate these from nutrition database
-    _calories = 280.0;
-    _protein = 15.0;
-    _carbs = 28.0;
-    _fat = 10.0;
-    _fiber = 2.0;
-    _sodium = 400.0;
+    _estimatedWeight = widget.estimatedWeight;
+    // Store base nutrition values
+    _baseCalories = widget.nutritionValues['calories'] ?? 0;
+    _baseProtein = widget.nutritionValues['protein'] ?? 0;
+    _baseCarbs = widget.nutritionValues['carbs'] ?? 0;
+    _baseFat = widget.nutritionValues['fat'] ?? 0;
+    
+    _calories = _baseCalories;
+    _protein = _baseProtein;
+    _carbs = _baseCarbs;
+    _fat = _baseFat;
+    
+    _imageUploadService = ImageUploadService();
   }
 
-  Future<void> _saveMeal() async {
+  void _updateNutritionByWeight(double newWeight) {
+    final ratio = newWeight / widget.estimatedWeight;
+    
     setState(() {
-      _isLoading = true;
+      _estimatedWeight = newWeight;
+      _calories = _baseCalories * ratio;
+      _protein = _baseProtein * ratio;
+      _carbs = _baseCarbs * ratio;
+      _fat = _baseFat * ratio;
     });
+  }
 
-    try {
-      final apiService = ApiService();
-      final isAuthenticated = await apiService.isAuthenticated();
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final kanitTheme = GoogleFonts.kanitTextTheme(textTheme);
 
-      if (!isAuthenticated) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('กรุณาเข้าสู่ระบบก่อน'),
-              backgroundColor: Colors.red,
+    return Scaffold(
+      backgroundColor: const Color(0xFFF7F7F7),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'แก้ไขอาหาร',
+          style: kanitTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+            fontSize: 24,
+          ),
+        ),
+        centerTitle: true,
+        actions: [
+          // Delete button
+          IconButton(
+            icon: const Icon(Icons.delete, color: Colors.red),
+            onPressed: () => _showDeleteConfirmDialog(context),
+          )
+        ],
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Food Image
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: _buildFoodImage(),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        widget.foodName,
+                        style: kanitTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 22,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Nutrition Sliders
+                Text(
+                  'ปรับปริมาณอาหาร',
+                  style: kanitTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Weight Slider
+                _buildWeightSlider(
+                  kanitTheme,
+                  'น้ำหนักโดยประมาณ',
+                  'g',
+                  _estimatedWeight,
+                  50,
+                  800,
+                  (value) {
+                    _updateNutritionByWeight(value);
+                  },
+                ),
+                const SizedBox(height: 20),
+
+                // Calories Slider
+                _buildNutritionSlider(
+                  kanitTheme,
+                  'แคลอรี่',
+                  'kcal',
+                  _calories,
+                  0,
+                  5000,
+                  (value) {
+                    setState(() => _calories = value);
+                  },
+                ),
+                const SizedBox(height: 20),
+
+                // Protein Slider
+                _buildNutritionSlider(
+                  kanitTheme,
+                  'โปรตีน',
+                  'g',
+                  _protein,
+                  0,
+                  200,
+                  (value) {
+                    setState(() => _protein = value);
+                  },
+                ),
+                const SizedBox(height: 20),
+
+                // Carbs Slider
+                _buildNutritionSlider(
+                  kanitTheme,
+                  'คาร์โบไฮเดรต',
+                  'g',
+                  _carbs,
+                  0,
+                  300,
+                  (value) {
+                    setState(() => _carbs = value);
+                  },
+                ),
+                const SizedBox(height: 20),
+
+                // Fat Slider
+                _buildNutritionSlider(
+                  kanitTheme,
+                  'ไขมัน',
+                  'g',
+                  _fat,
+                  0,
+                  150,
+                  (value) {
+                    setState(() => _fat = value);
+                  },
+                ),
+                const SizedBox(height: 40),
+
+                // Action Buttons
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _isUpdating ? null : () {
+                      print('🔘 BUTTON PRESSED: _updateMeal called');
+                      _updateMeal(context);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFABB5A),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: _isUpdating
+                        ? SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Text(
+                            'บันทึกการแก้ไข',
+                            style: kanitTheme.titleMedium?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      side: const BorderSide(
+                        color: Color(0xFFFABB5A),
+                        width: 2,
+                      ),
+                    ),
+                    child: Text(
+                      'ยกเลิก',
+                      style: kanitTheme.titleMedium?.copyWith(
+                        color: const Color(0xFFFABB5A),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          );
-        }
-        return;
-      }
+          ),
+        ),
+      ),
+    );
+  }
 
-      final mealService = MealService();
-      print('DEBUG MEAL_EDIT: Starting saveMeal with:');
-      print('DEBUG MEAL_EDIT: - foodName: ${widget.foodName}');
-      print('DEBUG MEAL_EDIT: - calories: ${_calories.toInt()}');
-      print('DEBUG MEAL_EDIT: - protein: ${_protein.toInt()}');
-      print('DEBUG MEAL_EDIT: - carbs: ${_carbs.toInt()}');
-      print('DEBUG MEAL_EDIT: - fat: ${_fat.toInt()}');
-      print('DEBUG MEAL_EDIT: - fiber: ${_fiber.toInt()}');
-      print('DEBUG MEAL_EDIT: - sodium: ${_sodium.toInt()}');
-      
-      final response = await mealService.saveMeal(
-        foodName: widget.foodName,
-        calories: _calories.toInt(),
-        protein: _protein.toInt(),
-        carbs: _carbs.toInt(),
-        fat: _fat.toInt(),
-        fiber: _fiber.toInt(),
-        sodium: _sodium.toInt(),
-        estimatedWeight: widget.estimatedWeight,
-        confidence: widget.confidence,
-        mealType: 'lunch',
-        mealTime: DateTime.now(),
+  Widget _buildNutritionSlider(
+    TextTheme theme,
+    String label,
+    String unit,
+    double value,
+    double min,
+    double max,
+    Function(double) onChanged,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                label,
+                style: theme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFABB5A),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${value.toStringAsFixed(1)} $unit',
+                  style: theme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 8.0,
+              thumbShape: const RoundSliderThumbShape(
+                enabledThumbRadius: 12.0,
+              ),
+              overlayShape: const RoundSliderOverlayShape(
+                overlayRadius: 20.0,
+              ),
+            ),
+            child: Slider(
+              value: value,
+              min: min,
+              max: max,
+              activeColor: const Color(0xFFFABB5A),
+              inactiveColor: Colors.grey[200]!,
+              onChanged: onChanged,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWeightSlider(
+    TextTheme theme,
+    String label,
+    String unit,
+    double value,
+    double min,
+    double max,
+    Function(double) onChanged,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                label,
+                style: theme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFABB5A),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${value.toStringAsFixed(0)} $unit',
+                  style: theme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 8.0,
+              thumbShape: const RoundSliderThumbShape(
+                enabledThumbRadius: 12.0,
+              ),
+              overlayShape: const RoundSliderOverlayShape(
+                overlayRadius: 20.0,
+              ),
+            ),
+            child: Slider(
+              value: value,
+              min: min,
+              max: max,
+              divisions: ((max - min) / 10).toInt(),
+              activeColor: const Color(0xFFFABB5A),
+              inactiveColor: Colors.grey[200]!,
+              onChanged: onChanged,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFoodImage() {
+    if (widget.imagePath.isEmpty) {
+      return Container(
+        height: 200,
+        width: double.infinity,
+        color: Colors.grey[200],
+        child: const Icon(Icons.image, size: 50, color: Colors.grey),
       );
+    }
 
-      print('DEBUG MEAL_EDIT: saveMeal response: $response');
-      print('DEBUG MEAL_EDIT: Response success: ${response['success']}');
-      print('DEBUG MEAL_EDIT: Response message: ${response['message']}');
-      print('DEBUG MEAL_EDIT: Response errors: ${response['errors']}');
-      print('DEBUG MEAL_EDIT: MealId: ${response['mealId']}');
+    if (widget.imagePath.startsWith('http')) {
+      return Image.network(
+        widget.imagePath,
+        height: 200,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            height: 200,
+            width: double.infinity,
+            color: Colors.grey[200],
+            child: const Icon(Icons.broken_image, size: 50, color: Colors.grey),
+          );
+        },
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            height: 200,
+            width: double.infinity,
+            color: Colors.grey[200],
+            child: const Center(child: CircularProgressIndicator()),
+          );
+        },
+      );
+    }
+
+    File imageFile = File(widget.imagePath);
+    if (imageFile.existsSync()) {
+      return Image.file(
+        imageFile,
+        height: 200,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            height: 200,
+            width: double.infinity,
+            color: Colors.grey[200],
+            child: const Icon(Icons.broken_image, size: 50, color: Colors.grey),
+          );
+        },
+      );
+    }
+
+    return Image.asset(
+      widget.imagePath,
+      height: 200,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) {
+        return Container(
+          height: 200,
+          width: double.infinity,
+          color: Colors.grey[200],
+          child: const Icon(Icons.image_not_supported, size: 50, color: Colors.grey),
+        );
+      },
+    );
+  }
+
+  void _showDeleteConfirmDialog(BuildContext context) {
+    final kanitTheme = GoogleFonts.kanitTextTheme(Theme.of(context).textTheme);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'ลบอาหาร',
+          style: kanitTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          'คุณแน่ใจหรือว่าต้องการลบ${widget.foodName}?',
+          style: kanitTheme.bodyMedium,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'ยกเลิก',
+              style: kanitTheme.bodyMedium?.copyWith(color: Colors.grey),
+            ),
+          ),
+          TextButton(
+            onPressed: () => _deleteMeal(context),
+            child: Text(
+              'ลบ',
+              style: kanitTheme.bodyMedium?.copyWith(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteMeal(BuildContext context) async {
+    try {
+      final mealService = MealService();
+      final response = await mealService.deleteMeal(widget.mealId);
 
       if (mounted) {
+        Navigator.pop(context); // Close dialog
+
         if (response['success']) {
-          // Add meal to SessionData
+          // Remove from SessionData
           final sessionData = Provider.of<SessionData>(context, listen: false);
-          sessionData.addMeal({
-            'foodName': widget.foodName,
-            'calories': _calories,
-            'protein': _protein,
-            'carbs': _carbs,
-            'fat': _fat,
-            'fiber': _fiber,
-            'sodium': _sodium,
-            'estimatedWeight': widget.estimatedWeight,
-            'confidence': widget.confidence,
-            'mealType': 'lunch',
-            'date': DateTime.now().toString().split(' ')[0], // YYYY-MM-DD
-            'mealId': response['mealId'], // Store meal ID from backend
-          });
+          sessionData.removeMealById(widget.mealId);
 
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('บันทึกอาหารสำเร็จ'),
+            SnackBar(
+              content: Text('ลบ${widget.foodName}สำเร็จ'),
               backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
             ),
           );
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
-          );
+
+          // Pop back to results_screen
+          Navigator.pop(context);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(response['message'] ?? 'เกิดข้อผิดพลาด'),
+              content: Text('เกิดข้อผิดพลาด: ${response['message']}'),
               backgroundColor: Colors.red,
+              duration: const Duration(seconds: 2),
             ),
           );
         }
@@ -141,370 +565,108 @@ class _MealEditScreenState extends State<MealEditScreen> {
           SnackBar(
             content: Text('เกิดข้อผิดพลาด: $e'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 2),
           ),
         );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
       }
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFFDEFE0),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFFDEFE0),
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text(
-          'แก้ไขข้อมูลอาหาร',
-          style: GoogleFonts.kanit(
-            color: Colors.black87,
-            fontWeight: FontWeight.bold,
+  Future<void> _updateMeal(BuildContext context) async {
+    print('🔵 _updateMeal: Updating meal ${widget.mealId}');
+    
+    if (mounted) {
+      setState(() => _isUpdating = true);
+    }
+
+    try {
+      File imageFile = File(widget.imagePath);
+      
+      if (imageFile.existsSync() && widget.imagePath.startsWith('/')) {
+        // Local file - upload image
+        print('📤 _updateMeal: Uploading image: ${imageFile.path}');
+        
+        String? imageUrl = await _imageUploadService.uploadFoodImageWithMealData(
+          imageFile: imageFile,
+          foodName: widget.foodName,
+          nutrition: {
+            'calories': _calories,
+            'protein': _protein,
+            'carbohydrates': _carbs,
+            'fat': _fat,
+          },
+          estimatedWeight: _estimatedWeight,
+          mealType: 'lunch',
+          confidence: 0.0,
+        );
+
+        if (!mounted) return;
+
+        if (imageUrl != null) {
+          print('✅ Image uploaded successfully');
+          
+          if (mounted) {
+            Navigator.pop(context, {
+              'calories': _calories,
+              'protein': _protein,
+              'carbs': _carbs,
+              'fat': _fat,
+              'estimatedWeight': _estimatedWeight,
+              'imageUrl': imageUrl,
+            });
+          }
+        } else {
+          throw Exception('Image upload failed');
+        }
+      } else {
+        // Remote image - just update nutrition
+        print('🔵 _updateMeal: Updating nutrition without image');
+        
+        final mealService = MealService();
+        final response = await mealService.updateMeal(
+          mealId: widget.mealId,
+          foodName: widget.foodName,
+          calories: _calories.toInt(),
+          protein: _protein,
+          carbs: _carbs,
+          fat: _fat,
+          fiber: 0.0,
+          sodium: 0.0,
+          estimatedWeight: _estimatedWeight,
+        );
+
+        if (!mounted) return;
+
+        if (response['success']) {
+          print('✅ Meal updated successfully');
+          
+          if (mounted) {
+            Navigator.pop(context, {
+              'calories': _calories,
+              'protein': _protein,
+              'carbs': _carbs,
+              'fat': _fat,
+              'estimatedWeight': _estimatedWeight,
+            });
+          }
+        } else {
+          throw Exception('Update failed: ${response['message']}');
+        }
+      }
+    } catch (e) {
+      print('❌ Error updating meal: $e');
+      
+      if (mounted) {
+        setState(() => _isUpdating = false);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('เกิดข้อผิดพลาด: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 2),
           ),
-        ),
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Food Image
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.file(
-                  File(widget.imageFile.path),
-                  height: 200,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Food Name and Confidence
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'ชื่ออาหาร',
-                      style: GoogleFonts.kanit(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      widget.foodName,
-                      style: GoogleFonts.kanit(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'ความมั่นใจ: ${(widget.confidence * 100).toStringAsFixed(1)}%',
-                      style: GoogleFonts.kanit(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Nutrition Sliders
-              Text(
-                'ปรับปรุงข้อมูลโภคนำ',
-                style: GoogleFonts.kanit(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Calories
-              _buildNutrientSlider(
-                label: 'แคลอรี่',
-                value: _calories,
-                max: 1000,
-                unit: 'kcal',
-                onChanged: (value) {
-                  setState(() {
-                    _calories = value;
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Protein
-              _buildNutrientSlider(
-                label: 'โปรตีน',
-                value: _protein,
-                max: 100,
-                unit: 'กรัม',
-                onChanged: (value) {
-                  setState(() {
-                    _protein = value;
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Carbs
-              _buildNutrientSlider(
-                label: 'คาร์โบไฮเดรต',
-                value: _carbs,
-                max: 100,
-                unit: 'กรัม',
-                onChanged: (value) {
-                  setState(() {
-                    _carbs = value;
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Fat
-              _buildNutrientSlider(
-                label: 'ไขมัน',
-                value: _fat,
-                max: 100,
-                unit: 'กรัม',
-                onChanged: (value) {
-                  setState(() {
-                    _fat = value;
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Fiber
-              _buildNutrientSlider(
-                label: 'เส้นใย',
-                value: _fiber,
-                max: 50,
-                unit: 'กรัม',
-                onChanged: (value) {
-                  setState(() {
-                    _fiber = value;
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Sodium
-              _buildNutrientSlider(
-                label: 'โซเดียม',
-                value: _sodium,
-                max: 2000,
-                unit: 'มก.',
-                onChanged: (value) {
-                  setState(() {
-                    _sodium = value;
-                  });
-                },
-              ),
-              const SizedBox(height: 32),
-
-              // Summary
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey[200]!),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'สรุปข้อมูล',
-                      style: GoogleFonts.kanit(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'แคลอรี่รวม:',
-                          style: GoogleFonts.kanit(fontSize: 13),
-                        ),
-                        Text(
-                          '${_calories.toInt()} kcal',
-                          style: GoogleFonts.kanit(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: const Color(0xFFFABB5A),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'โปรตีน:',
-                          style: GoogleFonts.kanit(fontSize: 13),
-                        ),
-                        Text(
-                          '${_protein.toStringAsFixed(1)} ก.',
-                          style: GoogleFonts.kanit(fontSize: 13),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'คาร์โบไฮเดรต:',
-                          style: GoogleFonts.kanit(fontSize: 13),
-                        ),
-                        Text(
-                          '${_carbs.toStringAsFixed(1)} ก.',
-                          style: GoogleFonts.kanit(fontSize: 13),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'ไขมัน:',
-                          style: GoogleFonts.kanit(fontSize: 13),
-                        ),
-                        Text(
-                          '${_fat.toStringAsFixed(1)} ก.',
-                          style: GoogleFonts.kanit(fontSize: 13),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 32),
-
-              // Save Button
-              ElevatedButton(
-                onPressed: _isLoading ? null : _saveMeal,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFABB5A),
-                  disabledBackgroundColor: Colors.grey[300],
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: _isLoading
-                    ? SizedBox(
-                        height: 24,
-                        width: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.grey[700]!,
-                          ),
-                        ),
-                      )
-                    : Text(
-                        'บันทึกอาหาร',
-                        style: GoogleFonts.kanit(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNutrientSlider({
-    required String label,
-    required double value,
-    required double max,
-    required String unit,
-    required ValueChanged<double> onChanged,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              label,
-              style: GoogleFonts.kanit(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFABB5A).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                '${value.toStringAsFixed(1)} $unit',
-                style: GoogleFonts.kanit(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFFFABB5A),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        SliderTheme(
-          data: SliderThemeData(
-            activeTrackColor: const Color(0xFFFABB5A),
-            inactiveTrackColor: Colors.grey[200],
-            thumbColor: const Color(0xFFFABB5A),
-            thumbShape: const RoundSliderThumbShape(
-              enabledThumbRadius: 12,
-              elevation: 2,
-            ),
-            trackHeight: 6,
-          ),
-          child: Slider(
-            value: value,
-            max: max,
-            min: 0,
-            divisions: (max / 5).toInt(),
-            onChanged: onChanged,
-          ),
-        ),
-      ],
-    );
+        );
+      }
+    }
   }
 }

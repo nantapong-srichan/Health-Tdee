@@ -603,22 +603,19 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
 
       print('DEBUG MEAL_CONFIRMATION: Update response: $response');
 
+      if (!mounted) return;
+
       if (response['success']) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('แก้ไข${widget.foodName}สำเร็จ'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-        // Return updated nutrition values
-        Navigator.pop(context, {
-          'calories': _calories,
-          'protein': _protein,
-          'carbs': _carbs,
-          'fat': _fat,
-          'estimatedWeight': _estimatedWeight,
-        });
+        // Pop immediately without SnackBar
+        if (mounted) {
+          Navigator.pop(context, {
+            'calories': _calories,
+            'protein': _protein,
+            'carbs': _carbs,
+            'fat': _fat,
+            'estimatedWeight': _estimatedWeight,
+          });
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -629,72 +626,11 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
         );
       }
     } else {
-      // Create new meal - upload image if it exists
-      print('🔵 _saveMeal: Creating new meal');
+      // Create new meal - just return edited values
+      // Do NOT upload here - let results_screen handle the upload when user confirms
+      print('🔵 _saveMeal: Returning edited values, upload will happen in results_screen');
       
-      File imageFile = File(widget.imagePath);
-      print('🔵 _saveMeal: Image path: ${imageFile.path}');
-      print('🔵 _saveMeal: Image exists: ${imageFile.existsSync()}');
-      
-      if (imageFile.existsSync()) {
-        // Upload image to Google Cloud Storage via Backend
-        print('📤 _saveMeal: Uploading image: ${imageFile.path}');
-        setState(() => _isUploading = true);
-        
-        try {
-          // อัปโหลดรูปพร้อมข้อมูล meal ในครั้งเดียว
-          print('🔵 _saveMeal: Calling uploadFoodImageWithMealData...');
-          String? result = await _imageUploadService.uploadFoodImageWithMealData(
-            imageFile: imageFile,
-            foodName: widget.foodName,
-            nutrition: {
-              'calories': _calories,
-              'protein': _protein,
-              'carbohydrates': _carbs,
-              'fat': _fat,
-            },
-            estimatedWeight: _estimatedWeight,
-            mealType: 'lunch',
-            confidence: 0.0,
-          );
-          
-          if (result != null) {
-            print('✅ Image and meal uploaded successfully');
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('บันทึก${widget.foodName}สำเร็จ'),
-                backgroundColor: Colors.green,
-                duration: const Duration(seconds: 2),
-              ),
-            );
-            
-            // Return nutrition values for results_screen
-            Navigator.pop(context, {
-              'calories': _calories,
-              'protein': _protein,
-              'carbs': _carbs,
-              'fat': _fat,
-              'estimatedWeight': _estimatedWeight,
-              'imageUrl': result,
-            });
-          } else {
-            throw Exception('Upload failed');
-          }
-        } catch (e) {
-          print('❌ Error uploading: $e');
-          setState(() => _isUploading = false);
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('เกิดข้อผิดพลาด: $e'),
-              backgroundColor: Colors.red,
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        }
-      } else {
-        // Image file doesn't exist, just return values
-        print('🔵 _saveMeal: No image file, returning values');
+      if (mounted) {
         Navigator.pop(context, {
           'calories': _calories,
           'protein': _protein,

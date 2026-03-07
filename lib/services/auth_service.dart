@@ -151,6 +151,7 @@ class AuthService {
     required int dailyCalorieGoal,
     List<String>? diseases,
     double? diabetesCarbLimit,
+    double? hypertensionSodiumLimit,
   }) async {
     try {
       final response = await _apiService.makeRequest(
@@ -168,6 +169,7 @@ class AuthService {
           'dailyCalorieGoal': dailyCalorieGoal,
           'diseases': diseases ?? [],
           'diabetesCarbLimit': diabetesCarbLimit,
+          'hypertensionSodiumLimit': hypertensionSodiumLimit,
         },
       );
       

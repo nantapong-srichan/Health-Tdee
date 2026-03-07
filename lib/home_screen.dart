@@ -10,7 +10,7 @@ import 'services/api_service.dart';
 import 'session_data.dart'; 
 import 'image_picker_screen.dart';
 import 'profile_screen.dart';
-import 'meal_confirmation_screen.dart';
+import 'meal_edit_screen.dart';
 import 'insulin_reminder_screen.dart'; 
 
 class HomeScreen extends StatefulWidget {
@@ -88,6 +88,11 @@ class _HomeScreenState extends State<HomeScreen> {
           final carbLimit = userProfile['diabetesCarbLimit'];
           double carbValue = (carbLimit is int) ? carbLimit.toDouble() : (carbLimit as double? ?? 0.0);
           sessionData.updateDiabetesCarbLimit(carbValue);
+        }
+        if (userProfile['hypertensionSodiumLimit'] != null) {
+          final sodiumLimit = userProfile['hypertensionSodiumLimit'];
+          double sodiumValue = (sodiumLimit is int) ? sodiumLimit.toDouble() : (sodiumLimit as double? ?? 2000.0);
+          sessionData.updateHypertensionSodiumLimit(sodiumValue);
         }
       }
     } catch (e) {
@@ -197,6 +202,15 @@ class _HomeScreenState extends State<HomeScreen> {
     return total;
   }
 
+  double _getSodiumForDayForDate(SessionData sessionData) {
+    final meals = sessionData.getMealsForDate(_selectedDate);
+    double total = 0;
+    for (var meal in meals) {
+      total += (meal['sodium'] as num?)?.toDouble() ?? 0;
+    }
+    return total;
+  }
+
   double _getCarbsForDate(SessionData sessionData) {
     final meals = sessionData.getMealsForDate(_selectedDate);
     double total = 0;
@@ -240,6 +254,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 // Diabetes carbs card (only for users with diabetes) - show after today calories
                 if (sessionData.hasDiabetes()) ...[
                   _buildDiabetesCarbsCard(kanitTheme, sessionData),
+                  const SizedBox(height: 24),
+                ],
+                // Hypertension sodium card (only for users with hypertension)
+                if (sessionData.hasHypertension()) ...[
+                  _buildHypertensionSodiumCard(kanitTheme, sessionData),
                   const SizedBox(height: 24),
                 ],
                 // Macronutrients cards
@@ -1436,24 +1455,24 @@ class _HomeScreenState extends State<HomeScreen> {
     
     return GestureDetector(
       onTap: () {
-        // Navigate to meal confirmation screen for editing
+        // Navigate to meal edit screen for editing
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (context) => MealConfirmationScreen(
+            builder: (context) => MealEditScreen(
+              mealId: meal['mealId'] as String,
               foodName: mealName,
-              imagePath: imageUrl ?? meal['imagePath'] ?? '', // ✅ ส่ง imageUrl ก่อน
+              imagePath: imageUrl ?? meal['imagePath'] ?? '', // ✅ ส่ง imageUrl
               nutritionValues: {
                 'calories': (meal['calories'] ?? 0).toDouble(),
                 'protein': (meal['protein'] ?? 0).toDouble(),
                 'carbs': (meal['carbs'] ?? 0).toDouble(),
                 'fat': (meal['fat'] ?? 0).toDouble(),
               },
-              mealId: meal['mealId'],
               estimatedWeight: (meal['estimatedWeight'] ?? 100.0).toDouble(),
             ),
           ),
         ).then((_) {
-          // Reload meals when returning from edit screen
+          // Reload meals after edit to show updated nutrition values
           _loadTodayMeals();
         });
       },
@@ -1616,6 +1635,91 @@ class _HomeScreenState extends State<HomeScreen> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildHypertensionSodiumCard(TextTheme theme, SessionData sessionData) {
+    return Consumer<SessionData>(
+      builder: (context, session, _) {
+        final currentSodium = _getSodiumForDayForDate(session);
+        final sodiumTarget = session.hypertensionSodiumLimit ?? 2000.0; // Default 2000mg if not set
+        final sodiumPercent = (currentSodium / sodiumTarget).clamp(0.0, 1.5);
+        
+        // Determine status and color
+        String sodiumStatus;
+        Color sodiumColor;
+        
+        if (currentSodium < sodiumTarget * 0.8) {
+          sodiumStatus = 'ปลอดภัย - โซเดียมต่ำ';
+          sodiumColor = Colors.green;
+        } else if (currentSodium >= sodiumTarget * 0.8 && currentSodium <= sodiumTarget) {
+          sodiumStatus = 'ควบคุมได้ดี - อยู่ในเป้าหมาย';
+          sodiumColor = Colors.green;
+        } else if (currentSodium > sodiumTarget && currentSodium <= sodiumTarget * 1.2) {
+          sodiumStatus = 'เกินเป้าหมาย - ระวัง!';
+          sodiumColor = Colors.orange;
+        } else {
+          sodiumStatus = 'อันตราย! - อาจมีผลเสียต่อความดันโลหิต';
+          sodiumColor = Colors.red;
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.favorite, color: Colors.red, size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('ควบคุมโซเดียมสำหรับความดันโลหิตสูง',
+                        style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                      Text(
+                        '${currentSodium.toStringAsFixed(1)} / ${sodiumTarget.toStringAsFixed(1)} mg',
+                        style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  value: sodiumPercent,
+                  minHeight: 8,
+                  backgroundColor: Colors.grey[200],
+                  valueColor: AlwaysStoppedAnimation<Color>(sodiumColor),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Center(
+                child: Text(
+                  sodiumStatus,
+                  style: theme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: sodiumColor,
                   ),
                 ),
               ),

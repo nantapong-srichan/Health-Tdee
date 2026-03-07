@@ -1635,6 +1635,7 @@ class _DiseasesEditModal extends StatefulWidget {
 class _DiseasesEditModalState extends State<_DiseasesEditModal> {
   late Map<String, bool> diseases;
   late TextEditingController diabetesCarbController;
+  late TextEditingController hypertensionSodiumController;
   bool isLoading = false;
 
   @override
@@ -1669,11 +1670,26 @@ class _DiseasesEditModalState extends State<_DiseasesEditModal> {
     print('Diabetes carb limit: $carbValue, text: $carbText');
     
     diabetesCarbController = TextEditingController(text: carbText);
+    
+    // Initialize sodium controller
+    dynamic sodiumValue = widget.userProfile['hypertensionSodiumLimit'];
+    String sodiumText = '';
+    if (sodiumValue != null) {
+      double sodiumDouble = (sodiumValue is int) ? sodiumValue.toDouble() : (sodiumValue as double? ?? 2000.0);
+      sodiumText = sodiumDouble.toString();
+    } else {
+      sodiumText = '2000'; // Default sodium limit
+    }
+    
+    print('Hypertension sodium limit: $sodiumValue, text: $sodiumText');
+    
+    hypertensionSodiumController = TextEditingController(text: sodiumText);
   }
 
   @override
   void dispose() {
     diabetesCarbController.dispose();
+    hypertensionSodiumController.dispose();
     super.dispose();
   }
 
@@ -1763,6 +1779,36 @@ class _DiseasesEditModalState extends State<_DiseasesEditModal> {
               controlAffinity: ListTileControlAffinity.leading,
               contentPadding: EdgeInsets.zero,
             ),
+            // Sodium input if hypertension selected
+            if (diseases['hypertension'] == true) ...[
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.only(left: 40),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ปริมาณโซเดียมต่อวัน (มิลลิกรัม)',
+                      style: widget.theme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: hypertensionSodiumController,
+                      keyboardType: TextInputType.numberWithOptions(decimal: true),
+                      enabled: !isLoading,
+                      decoration: InputDecoration(
+                        hintText: 'เช่น 2000 หรือ  2000.0',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
@@ -1810,7 +1856,24 @@ class _DiseasesEditModalState extends State<_DiseasesEditModal> {
                             diabetesCarbLimit = null;
                           }
                           print('Final diabetesCarbLimit: $diabetesCarbLimit (will be null if no diabetes)');
-                          print('Sending to API - diseases: $selectedDiseases, carbLimit: $diabetesCarbLimit');
+                          
+                          // Get hypertension sodium if hypertension is selected
+                          double? hypertensionSodiumLimit;
+                          if (diseases['hypertension'] == true &&
+                              hypertensionSodiumController.text.isNotEmpty) {
+                            try {
+                              hypertensionSodiumLimit = double.parse(hypertensionSodiumController.text);
+                              print('Parsed sodium limit: $hypertensionSodiumLimit (type: ${hypertensionSodiumLimit.runtimeType})');
+                            } catch (e) {
+                              print('ERROR parsing sodium limit: $e');
+                              hypertensionSodiumLimit = null;
+                            }
+                          } else {
+                            print('Hypertension not selected or sodium field empty - setting sodiumLimit to null');
+                            hypertensionSodiumLimit = null;
+                          }
+                          print('Final hypertensionSodiumLimit: $hypertensionSodiumLimit');
+                          print('Sending to API - diseases: $selectedDiseases, carbLimit: $diabetesCarbLimit, sodiumLimit: $hypertensionSodiumLimit');
 
                           // Debug: print current profile data
                           print('Current profile name: ${widget.userProfile['name']}');
@@ -1848,6 +1911,7 @@ class _DiseasesEditModalState extends State<_DiseasesEditModal> {
                             dailyCalorieGoal: dailyCalorieValue,
                             diseases: selectedDiseases,
                             diabetesCarbLimit: diabetesCarbLimit,
+                            hypertensionSodiumLimit: hypertensionSodiumLimit,
                           );
 
                           print('API Response: $result');

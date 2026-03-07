@@ -27,9 +27,10 @@ class SessionData with ChangeNotifier {
   double? dailyCalorieNeed;
   double? proteinGrams;
 
-  // ข้อมูลโรคประจำตัวและคาร์โบไฮเดรต
+  // ข้อมูลโรคประจำตัวและคาร์โบไฮเดรต/โซเดียม
   List<String>? diseases; // ['diabetes', 'hypertension']
   double? diabetesCarbLimit; // เป้าหมายคาร์โบไฮเดรตต่อวัน (กรัม)
+  double? hypertensionSodiumLimit; // เป้าหมายโซเดียมต่อวัน (มิลลิกรัม)
 
   // ข้อมูลแจ้งเตือนการฉีดอินซูลิน
   List<Map<String, dynamic>> insulinReminders = []; // [{'hour': 9, 'minute': 20, 'id': 'xxx'}, ...]
@@ -151,9 +152,19 @@ class SessionData with ChangeNotifier {
     notifyListeners();
   }
 
+  void updateHypertensionSodiumLimit(double? value) {
+    hypertensionSodiumLimit = value;
+    notifyListeners();
+  }
+
   // Check if user has diabetes
   bool hasDiabetes() {
     return diseases?.contains('diabetes') ?? false;
+  }
+
+  // Check if user has hypertension
+  bool hasHypertension() {
+    return diseases?.contains('hypertension') ?? false;
   }
 
   // ฟังก์ชันสำหรับจัดการแจ้งเตือนการฉีดอินซูลิน
