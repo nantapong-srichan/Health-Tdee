@@ -10,8 +10,7 @@ import 'services/api_service.dart';
 import 'session_data.dart'; 
 import 'image_picker_screen.dart';
 import 'profile_screen.dart';
-import 'meal_edit_screen.dart';
-import 'insulin_reminder_screen.dart'; 
+import 'meal_edit_screen.dart'; 
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -23,6 +22,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedTabIndex = 0; // 0: daily, 1: 7days, 2: 30days
   late DateTime _selectedDate;
+  DateTime _weekStartDate = DateTime.now(); // วันเริ่มต้นของสัปดาห์ที่จะแสดง (ล็อคไว้จนกว่าเลือกปฏิทิน)
   final _authService = AuthService();
   final _mealService = MealService();
 
@@ -30,11 +30,63 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _selectedDate = DateTime.now();
+    _weekStartDate = _selectedDate;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final sessionData = Provider.of<SessionData>(context, listen: false);
       sessionData.selectedDate = _selectedDate;
     });
     _loadUserDataAndRefresh();
+    _load14DaysMeals(); // โหลด 14 วันข้อมูลอาหาร
+  }
+
+  Future<void> _load14DaysMeals() async {
+    try {
+      final baseDate = _selectedDate; // ใช้ _selectedDate แทน DateTime.now()
+      final sessionData = Provider.of<SessionData>(context, listen: false);
+      
+      // โหลด 14 วันย้อนหลังจาก baseDate
+      for (int i = 13; i >= 0; i--) {
+        final date = baseDate.subtract(Duration(days: i));
+        final startOfDay = DateTime(date.year, date.month, date.day);
+        final endOfDay = startOfDay.add(const Duration(days: 1)).subtract(const Duration(seconds: 1));
+
+        final startDateStr = startOfDay.toIso8601String().split('.')[0];
+        final endDateStr = endOfDay.toIso8601String().split('.')[0];
+
+        final response = await _mealService.getMealHistory(
+          startDate: startDateStr,
+          endDate: endDateStr,
+          limit: 100,
+        );
+
+        if (mounted && response['success']) {
+          sessionData.clearMealsForDate(date);
+          
+          final meals = response['meals'] as List?;
+          if (meals != null && meals.isNotEmpty) {
+            for (var meal in meals) {
+              sessionData.addMeal({
+                'foodName': meal['foodName'],
+                'calories': (meal['nutrition']?['calories'] ?? 0).toDouble(),
+                'protein': (meal['nutrition']?['protein'] ?? 0).toDouble(),
+                'carbs': (meal['nutrition']?['carbohydrates'] ?? 0).toDouble(),
+                'fat': (meal['nutrition']?['fat'] ?? 0).toDouble(),
+                'fiber': (meal['nutrition']?['fiber'] ?? 0).toDouble(),
+                'sodium': (meal['nutrition']?['sodium'] ?? 0).toDouble(),
+                'estimatedWeight': meal['estimatedWeight'],
+                'confidence': meal['confidence'],
+                'mealType': meal['mealType'] ?? 'other',
+                'date': _getMealDateInBangkokTime(meal['mealTime'] as String),
+                'mealId': meal['_id'],
+                'imageUrl': meal['imageUrl'],
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      print('DEBUG: Error loading 14 days meals: $e');
+    }
   }
 
   Future<void> _loadUserDataAndRefresh() async {
@@ -281,8 +333,11 @@ class _HomeScreenState extends State<HomeScreen> {
               builder: (context) => const ImagePickerScreen(),
             ),
           ).then((_) {
-            // Refresh meal history when returning from ImagePickerScreen
-            _loadTodayMeals();
+            // Reset to today and refresh meal history when returning from ImagePickerScreen
+            setState(() {
+              _selectedDate = DateTime.now();
+            });
+            _load14DaysMeals(); // โหลด 14 วันข้อมูลใหม่หลังจากบันทึกอาหาร
           });
         },
         backgroundColor: const Color(0xFFFABB5A),
@@ -1192,18 +1247,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildDateSelector(TextTheme theme, SessionData sessionData) {
     return StatefulBuilder(
       builder: (context, setState) {
-        final today = DateTime.now();
-        
-        // คำนวณวันอาทิตย์ของสัปดาห์ที่ _selectedDate อยู่
-        final weekday = _selectedDate.weekday; // 1=Monday, 7=Sunday
-        final daysToSunday = weekday == 7 ? 0 : weekday; // วันจันทร์ให้ลบ 1, วันอาทิตย์ให้ลบ 0
-        final sundayOfWeek = _selectedDate.subtract(Duration(days: daysToSunday));
-        
+        // สร้างลิสต์วันที่ย้อนหลัง 6 วัน + วันเริ่มต้นสัปดาห์ (7 วันทั้งหมด) - ล็อคไว้
         final datesList = <DateTime>[];
         
-        // สร้างลิสต์วันที่สำหรับสัปดาห์ (อาทิตย์ - เสาร์)
-        for (int i = 0; i < 7; i++) {
-          datesList.add(sundayOfWeek.add(Duration(days: i)));
+        for (int i = 6; i >= 0; i--) {
+          datesList.add(_weekStartDate.subtract(Duration(days: i)));
         }
         
         // หาวันที่เลือก index
@@ -1271,9 +1319,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                 final sessionData = Provider.of<SessionData>(context, listen: false);
                                 this.setState(() {
                                   _selectedDate = pickedDate;
+                                  _weekStartDate = pickedDate; // อัปเดต _weekStartDate เมื่อเลือกปฏิทิน
                                   sessionData.selectedDate = pickedDate;
                                 });
-                                _loadTodayMeals();
+                                _load14DaysMeals(); // โหลด 14 วันข้อมูลใหม่
                               }
                             });
                           },
@@ -1608,36 +1657,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
-              // Insulin Reminder Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const InsulinReminderScreen(),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.notifications_active, size: 18),
-                  label: Text(
-                    'แจ้งเตือนการฉีดอินซูลิน',
-                    style: GoogleFonts.kanit(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFABB5A),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-              ),
+
             ],
           ),
         );
@@ -1732,15 +1752,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Helper method to get 7 days calorie data
   List<fl_chart.FlSpot> _get7DaysChartData(SessionData sessionData) {
-    final weekday = _selectedDate.weekday;
-    final daysToSunday = weekday == 7 ? 0 : weekday;
-    final sundayOfWeek = _selectedDate.subtract(Duration(days: daysToSunday));
     final caloriesList = <fl_chart.FlSpot>[];
     
-    for (int i = 0; i < 7; i++) {
-      final date = sundayOfWeek.add(Duration(days: i));
+    for (int i = 6; i >= 0; i--) {
+      final date = _selectedDate.subtract(Duration(days: i));
       final calories = sessionData.getCaloriesForDate(date);
-      caloriesList.add(fl_chart.FlSpot(i.toDouble(), calories));
+      caloriesList.add(fl_chart.FlSpot(6 - i.toDouble(), calories));
     }
     
     return caloriesList;
@@ -1757,6 +1774,78 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     
     return caloriesList;
+  }
+
+  // Helper method to get 7 days carbs data
+  List<fl_chart.FlSpot> _get7DaysCarbsData(SessionData sessionData) {
+    final carbsList = <fl_chart.FlSpot>[];
+    
+    for (int i = 6; i >= 0; i--) {
+      final date = _selectedDate.subtract(Duration(days: i));
+      final carbs = _getCarbsForDateByDate(sessionData, date);
+      carbsList.add(fl_chart.FlSpot(6 - i.toDouble(), carbs));
+    }
+    
+    return carbsList;
+  }
+
+  // Helper method to get 14 days carbs data
+  List<fl_chart.FlSpot> _get14DaysCarbsData(SessionData sessionData) {
+    final carbsList = <fl_chart.FlSpot>[];
+    
+    for (int i = 13; i >= 0; i--) {
+      final date = _selectedDate.subtract(Duration(days: i));
+      final carbs = _getCarbsForDateByDate(sessionData, date);
+      carbsList.add(fl_chart.FlSpot(13 - i.toDouble(), carbs));
+    }
+    
+    return carbsList;
+  }
+
+  // Helper method to get carbs for specific date
+  double _getCarbsForDateByDate(SessionData sessionData, DateTime date) {
+    final meals = sessionData.getMealsForDate(date);
+    double total = 0;
+    for (var meal in meals) {
+      total += (meal['carbs'] as num?)?.toDouble() ?? 0;
+    }
+    return total;
+  }
+
+  // Helper method to get 7 days sodium data
+  List<fl_chart.FlSpot> _get7DaysSodiumData(SessionData sessionData) {
+    final sodiumList = <fl_chart.FlSpot>[];
+    
+    for (int i = 6; i >= 0; i--) {
+      final date = _selectedDate.subtract(Duration(days: i));
+      final sodium = _getSodiumForDateByDate(sessionData, date);
+      sodiumList.add(fl_chart.FlSpot(6 - i.toDouble(), sodium));
+    }
+    
+    return sodiumList;
+  }
+
+  // Helper method to get 14 days sodium data
+  List<fl_chart.FlSpot> _get14DaysSodiumData(SessionData sessionData) {
+    final sodiumList = <fl_chart.FlSpot>[];
+    
+    for (int i = 13; i >= 0; i--) {
+      final date = _selectedDate.subtract(Duration(days: i));
+      final sodium = _getSodiumForDateByDate(sessionData, date);
+      sodiumList.add(fl_chart.FlSpot(13 - i.toDouble(), sodium));
+    }
+    
+    return sodiumList;
+  }
+
+  // Helper method to get sodium for specific date
+  double _getSodiumForDateByDate(SessionData sessionData, DateTime date) {
+    final meals = sessionData.getMealsForDate(date);
+    double total = 0;
+    for (var meal in meals) {
+      total += (meal['sodium'] as num?)?.toDouble() ?? 0;
+    }
+    return total;
   }
 
   // Widget to display 7 days chart
@@ -1826,10 +1915,20 @@ class _HomeScreenState extends State<HomeScreen> {
                         sideTitles: fl_chart.SideTitles(
                           showTitles: true,
                           getTitlesWidget: (value, meta) {
-                            final days = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
                             final index = value.toInt();
-                            if (index >= 0 && index < days.length) {
-                              return Text(days[index], style: theme.bodySmall);
+                            if (index >= 0 && index < 7) {
+                              final date = _selectedDate.subtract(Duration(days: 6 - index));
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: Transform.rotate(
+                                  angle: -0.785,
+                                  child: Text(
+                                    '${date.day}/${date.month}',
+                                    style: theme.bodySmall?.copyWith(fontSize: 11, fontWeight: FontWeight.w600),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              );
                             }
                             return const Text('');
                           },
@@ -1868,6 +1967,154 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   ),
+                ),
+              ),
+              // Display carbs chart for diabetes patients (7-day view)
+              if (data.hasDiabetes()) ...[
+                _build7DaysCarbsChart(theme, data),
+              ],
+              // Display sodium charts for hypertension patients (7-day view)
+              if (data.hasHypertension()) ...[
+                _build7DaysSodiumChart(theme, data),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Widget to display 7 days carbs chart for diabetes patients
+  Widget _build7DaysCarbsChart(TextTheme theme, SessionData sessionData) {
+    return Consumer<SessionData>(
+      builder: (context, data, _) {
+        if (!data.hasDiabetes()) {
+          return const SizedBox.shrink();
+        }
+        
+        final chartData = _get7DaysCarbsData(data);
+        final carbLimit = data.diabetesCarbLimit ?? 150.0;
+        
+        return Container(
+          padding: const EdgeInsets.all(16),
+          margin: const EdgeInsets.only(top: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('คาร์โบไฮเดรต 7 วันย้อนหลัง (โรคเบาหวาน)', 
+                  style: theme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              // Legend
+              Wrap(
+                spacing: 20,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: Colors.purple,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text('คาร์โบไฮเดรตที่บริโภค', style: theme.bodySmall),
+                    ],
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFF1744),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text('เกินเกณฑ์', style: theme.bodySmall),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                height: 200,
+                child: fl_chart.BarChart(
+                  fl_chart.BarChartData(
+                    gridData: fl_chart.FlGridData(show: true, drawVerticalLine: false),
+                    titlesData: fl_chart.FlTitlesData(
+                      rightTitles: fl_chart.AxisTitles(),
+                      topTitles: fl_chart.AxisTitles(),
+                      bottomTitles: fl_chart.AxisTitles(
+                        sideTitles: fl_chart.SideTitles(
+                          showTitles: true,
+                          getTitlesWidget: (value, meta) {
+                            final index = value.toInt();
+                            if (index >= 0 && index < 7) {
+                              final date = _selectedDate.subtract(Duration(days: 6 - index));
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: Transform.rotate(
+                                  angle: -0.785,
+                                  child: Text(
+                                    '${date.day}/${date.month}',
+                                    style: theme.bodySmall?.copyWith(fontSize: 11, fontWeight: FontWeight.w600),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              );
+                            }
+                            return const Text('');
+                          },
+                        ),
+                      ),
+                      leftTitles: fl_chart.AxisTitles(
+                        sideTitles: fl_chart.SideTitles(
+                          showTitles: true,
+                          getTitlesWidget: (value, meta) {
+                            if (value == carbLimit * 1.2) {
+                              return const Text('');
+                            }
+                            return Text('${value.toInt()}', style: theme.bodySmall, textAlign: TextAlign.center);
+                          },
+                          reservedSize: 40,
+                        ),
+                      ),
+                    ),
+                    borderData: fl_chart.FlBorderData(show: false),
+                    minY: 0,
+                    maxY: carbLimit * 1.2,
+                    barGroups: List.generate(
+                      chartData.length,
+                      (index) => fl_chart.BarChartGroupData(
+                        x: index,
+                        barRods: [
+                          fl_chart.BarChartRodData(
+                            fromY: 0,
+                            toY: chartData[index].y,
+                            color: chartData[index].y > carbLimit ? const Color(0xFFFF1744) : Colors.purple,
+                            width: 16,
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Center(
+                child: Text(
+                  'เกณฑ์คาร์โบไฮเดรต: ${carbLimit.toStringAsFixed(0)}g ต่อวัน',
+                  style: theme.bodySmall?.copyWith(color: Colors.grey),
                 ),
               ),
             ],
@@ -1997,6 +2244,437 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   ),
+                ),
+              ),
+              // Display carbs chart for diabetes patients (14-day view)
+              if (data.hasDiabetes()) ...[
+                _build14DaysCarbsChart(theme, data),
+              ],
+              // Display sodium charts for hypertension patients (14-day view)
+              if (data.hasHypertension()) ...[
+                _build14DaysSodiumChart(theme, data),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Widget to display 14 days carbs chart for diabetes patients
+  Widget _build14DaysCarbsChart(TextTheme theme, SessionData sessionData) {
+    return Consumer<SessionData>(
+      builder: (context, data, _) {
+        if (!data.hasDiabetes()) {
+          return const SizedBox.shrink();
+        }
+        
+        final chartData = _get14DaysCarbsData(data);
+        final carbLimit = data.diabetesCarbLimit ?? 150.0;
+        
+        return Container(
+          padding: const EdgeInsets.all(16),
+          margin: const EdgeInsets.only(top: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('คาร์โบไฮเดรต 14 วันย้อนหลัง (โรคเบาหวาน)', 
+                  style: theme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              // Legend
+              Wrap(
+                spacing: 20,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: Colors.purple,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text('คาร์โบไฮเดรตที่บริโภค', style: theme.bodySmall),
+                    ],
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFF1744),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text('เกินเกณฑ์', style: theme.bodySmall),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              // Calculate chart height proportional to calorie chart
+              SizedBox(
+                height: 200,
+                child: fl_chart.BarChart(
+                  fl_chart.BarChartData(
+                    gridData: fl_chart.FlGridData(show: true, drawVerticalLine: false),
+                    titlesData: fl_chart.FlTitlesData(
+                      rightTitles: fl_chart.AxisTitles(),
+                      topTitles: fl_chart.AxisTitles(),
+                      bottomTitles: fl_chart.AxisTitles(
+                        sideTitles: fl_chart.SideTitles(
+                          showTitles: true,
+                          interval: 2,
+                          getTitlesWidget: (value, meta) {
+                            final index = value.toInt();
+                            if (index >= 0 && index < chartData.length) {
+                              final date = _selectedDate.subtract(Duration(days: 13 - index));
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: Transform.rotate(
+                                  angle: -0.785,
+                                  child: Text(
+                                    '${date.day}/${date.month}',
+                                    style: theme.bodySmall?.copyWith(fontSize: 11, fontWeight: FontWeight.w600),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              );
+                            }
+                            return const Text('');
+                          },
+                        ),
+                      ),
+                      leftTitles: fl_chart.AxisTitles(
+                        sideTitles: fl_chart.SideTitles(
+                          showTitles: true,
+                          getTitlesWidget: (value, meta) {
+                            if (value == carbLimit * 1.2) {
+                              return const Text('');
+                            }
+                            return Text('${value.toInt()}', style: theme.bodySmall, textAlign: TextAlign.center);
+                          },
+                          reservedSize: 40,
+                        ),
+                      ),
+                    ),
+                    borderData: fl_chart.FlBorderData(show: false),
+                    minY: 0,
+                    maxY: carbLimit * 1.2,
+                    barGroups: List.generate(
+                      chartData.length,
+                      (index) => fl_chart.BarChartGroupData(
+                        x: index,
+                        barRods: [
+                          fl_chart.BarChartRodData(
+                            fromY: 0,
+                            toY: chartData[index].y,
+                            color: chartData[index].y > carbLimit ? const Color(0xFFFF1744) : Colors.purple,
+                            width: 10,
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Center(
+                child: Text(
+                  'เกณฑ์คาร์โบไฮเดรต: ${carbLimit.toStringAsFixed(0)}g ต่อวัน',
+                  style: theme.bodySmall?.copyWith(color: Colors.grey),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Widget to display 7 days sodium chart for hypertension
+  Widget _build7DaysSodiumChart(TextTheme theme, SessionData sessionData) {
+    return Consumer<SessionData>(
+      builder: (context, data, _) {
+        if (!data.hasHypertension()) {
+          return const SizedBox.shrink();
+        }
+        
+        final chartData = _get7DaysSodiumData(data);
+        final sodiumLimit = data.hypertensionSodiumLimit ?? 2000.0;
+        
+        return Container(
+          padding: const EdgeInsets.all(16),
+          margin: const EdgeInsets.only(top: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('โซเดียม 7 วันย้อนหลัง (ความดันโลหิตสูง)', 
+                  style: theme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              // Legend
+              Wrap(
+                spacing: 20,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: Colors.blue,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text('โซเดียมที่บริโภค', style: theme.bodySmall),
+                    ],
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFF1744),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text('เกินเกณฑ์', style: theme.bodySmall),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                height: 200,
+                child: fl_chart.BarChart(
+                  fl_chart.BarChartData(
+                    gridData: fl_chart.FlGridData(show: true, drawVerticalLine: false),
+                    titlesData: fl_chart.FlTitlesData(
+                      rightTitles: fl_chart.AxisTitles(),
+                      topTitles: fl_chart.AxisTitles(),
+                      bottomTitles: fl_chart.AxisTitles(
+                        sideTitles: fl_chart.SideTitles(
+                          showTitles: true,
+                          getTitlesWidget: (value, meta) {
+                            final index = value.toInt();
+                            if (index >= 0 && index < 7) {
+                              final date = _selectedDate.subtract(Duration(days: 6 - index));
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: Transform.rotate(
+                                  angle: -0.785,
+                                  child: Text(
+                                    '${date.day}/${date.month}',
+                                    style: theme.bodySmall?.copyWith(fontSize: 11, fontWeight: FontWeight.w600),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              );
+                            }
+                            return const Text('');
+                          },
+                        ),
+                      ),
+                      leftTitles: fl_chart.AxisTitles(
+                        sideTitles: fl_chart.SideTitles(
+                          showTitles: true,
+                          getTitlesWidget: (value, meta) {
+                            if (value == sodiumLimit * 1.2) {
+                              return const Text('');
+                            }
+                            return Text('${value.toInt()}', style: theme.bodySmall, textAlign: TextAlign.center);
+                          },
+                          reservedSize: 40,
+                        ),
+                      ),
+                    ),
+                    borderData: fl_chart.FlBorderData(show: false),
+                    minY: 0,
+                    maxY: sodiumLimit * 1.2,
+                    barGroups: List.generate(
+                      chartData.length,
+                      (index) => fl_chart.BarChartGroupData(
+                        x: index,
+                        barRods: [
+                          fl_chart.BarChartRodData(
+                            fromY: 0,
+                            toY: chartData[index].y,
+                            color: chartData[index].y > sodiumLimit ? const Color(0xFFFF1744) : Colors.blue,
+                            width: 16,
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Center(
+                child: Text(
+                  'เกณฑ์โซเดียม: ${sodiumLimit.toStringAsFixed(0)}mg ต่อวัน',
+                  style: theme.bodySmall?.copyWith(color: Colors.grey),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Widget to display 14 days sodium chart for hypertension
+  Widget _build14DaysSodiumChart(TextTheme theme, SessionData sessionData) {
+    return Consumer<SessionData>(
+      builder: (context, data, _) {
+        if (!data.hasHypertension()) {
+          return const SizedBox.shrink();
+        }
+        
+        final chartData = _get14DaysSodiumData(data);
+        final sodiumLimit = data.hypertensionSodiumLimit ?? 2000.0;
+        
+        return Container(
+          padding: const EdgeInsets.all(16),
+          margin: const EdgeInsets.only(top: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('โซเดียม 14 วันย้อนหลัง (ความดันโลหิตสูง)', 
+                  style: theme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              // Legend
+              Wrap(
+                spacing: 20,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: Colors.blue,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text('โซเดียมที่บริโภค', style: theme.bodySmall),
+                    ],
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFF1744),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text('เกินเกณฑ์', style: theme.bodySmall),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                height: 200,
+                child: fl_chart.BarChart(
+                  fl_chart.BarChartData(
+                    gridData: fl_chart.FlGridData(show: true, drawVerticalLine: false),
+                    titlesData: fl_chart.FlTitlesData(
+                      rightTitles: fl_chart.AxisTitles(),
+                      topTitles: fl_chart.AxisTitles(),
+                      bottomTitles: fl_chart.AxisTitles(
+                        sideTitles: fl_chart.SideTitles(
+                          showTitles: true,
+                          interval: 2,
+                          getTitlesWidget: (value, meta) {
+                            final index = value.toInt();
+                            if (index >= 0 && index < chartData.length) {
+                              final date = _selectedDate.subtract(Duration(days: 13 - index));
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: Transform.rotate(
+                                  angle: -0.785,
+                                  child: Text(
+                                    '${date.day}/${date.month}',
+                                    style: theme.bodySmall?.copyWith(fontSize: 11, fontWeight: FontWeight.w600),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              );
+                            }
+                            return const Text('');
+                          },
+                        ),
+                      ),
+                      leftTitles: fl_chart.AxisTitles(
+                        sideTitles: fl_chart.SideTitles(
+                          showTitles: true,
+                          getTitlesWidget: (value, meta) {
+                            if (value == sodiumLimit * 1.2) {
+                              return const Text('');
+                            }
+                            return Text('${value.toInt()}', style: theme.bodySmall, textAlign: TextAlign.center);
+                          },
+                          reservedSize: 40,
+                        ),
+                      ),
+                    ),
+                    borderData: fl_chart.FlBorderData(show: false),
+                    minY: 0,
+                    maxY: sodiumLimit * 1.2,
+                    barGroups: List.generate(
+                      chartData.length,
+                      (index) => fl_chart.BarChartGroupData(
+                        x: index,
+                        barRods: [
+                          fl_chart.BarChartRodData(
+                            fromY: 0,
+                            toY: chartData[index].y,
+                            color: chartData[index].y > sodiumLimit ? const Color(0xFFFF1744) : Colors.blue,
+                            width: 10,
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Center(
+                child: Text(
+                  'เกณฑ์โซเดียม: ${sodiumLimit.toStringAsFixed(0)}mg ต่อวัน',
+                  style: theme.bodySmall?.copyWith(color: Colors.grey),
                 ),
               ),
             ],

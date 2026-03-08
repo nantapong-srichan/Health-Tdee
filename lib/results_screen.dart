@@ -9,15 +9,16 @@ import 'recognition_result.dart';
 import 'session_data.dart';
 import 'nutrition_database.dart';
 import 'food_recommendations_v2.dart' as food_rec;
+import 'food_recommendation_categories.dart';
 import 'services/meal_service.dart';
 import 'services/image_upload_service.dart';
 
 class ResultsScreen extends StatefulWidget {
   final XFile imageFile;
   final RecognitionResult result;
-  
+
   const ResultsScreen({
-    super.key, 
+    super.key,
     required this.imageFile,
     required this.result,
   });
@@ -31,8 +32,10 @@ class _ResultsScreenState extends State<ResultsScreen> {
   late double _protein;
   late double _carbs;
   late double _fat;
+  late double _sodium;
   late double _estimatedWeight;
-  String? _uploadedImageUrl; // Store image URL if uploaded from meal_confirmation_screen
+  String?
+  _uploadedImageUrl; // Store image URL if uploaded from meal_confirmation_screen
 
   @override
   void initState() {
@@ -52,12 +55,12 @@ class _ResultsScreenState extends State<ResultsScreen> {
       _protein = nutritionCalc?.protein ?? 0.0;
       _carbs = nutritionCalc?.carbs ?? 0.0;
       _fat = nutritionCalc?.fat ?? 0.0;
+      _sodium = nutritionCalc?.sodium ?? 0.0;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       backgroundColor: const Color(0xFFFAF6F0),
       appBar: AppBar(
@@ -96,7 +99,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
               ),
             ),
             const SizedBox(height: 28),
-            
+
             // 2. ชื่ออาหารและความมั่นใจ
             Container(
               padding: const EdgeInsets.all(16),
@@ -124,7 +127,10 @@ class _ResultsScreenState extends State<ResultsScreen> {
                   ),
                   const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFABB5A).withOpacity(0.2),
                       borderRadius: BorderRadius.circular(12),
@@ -199,7 +205,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
 
             // 4. การ์ดแคลอรี่
             _buildCaloriesCard(_calories),
-            
+
             const SizedBox(height: 20),
 
             // 5. สารอาหาร
@@ -236,12 +242,15 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 ],
               ),
             ),
-            
-            const SizedBox(height: 28),
 
+            const SizedBox(height: 28),
+            // 5.5. Carb/Sodium Quota Card (เพื่อแสดงการใช้โควตารายวัน)
+            _buildCarbSodiumQuotaCard(),
+
+            const SizedBox(height: 28),
             // 6. คำแนะนำสำหรับโรค (แสดงเฉพาะโรคที่ผู้ใช้มี)
             _buildDiseaseRecommendations(),
-            
+
             const SizedBox(height: 20),
 
             // 7. ปุ่มยืนยัน และแก้ไข
@@ -252,36 +261,42 @@ class _ResultsScreenState extends State<ResultsScreen> {
                   child: ElevatedButton.icon(
                     onPressed: () async {
                       // Navigate to meal confirmation screen with slider UI for editing
-                      final result = await Navigator.of(context).push<Map<String, dynamic>>(
-                        MaterialPageRoute(
-                          builder: (context) => MealConfirmationScreen(
-                            foodName: widget.result.foodName,
-                            imagePath: widget.imageFile.path,
-                            nutritionValues: {
-                              'calories': _calories,
-                              'protein': _protein,
-                              'carbs': _carbs,
-                              'fat': _fat,
-                            },
-                            estimatedWeight: _estimatedWeight,
-                            fromResultsScreen: true,
-                          ),
-                        ),
-                      );
-                      
+                      final result = await Navigator.of(context)
+                          .push<Map<String, dynamic>>(
+                            MaterialPageRoute(
+                              builder: (context) => MealConfirmationScreen(
+                                foodName: widget.result.foodName,
+                                imagePath: widget.imageFile.path,
+                                nutritionValues: {
+                                  'calories': _calories,
+                                  'protein': _protein,
+                                  'carbs': _carbs,
+                                  'fat': _fat,
+                                },
+                                estimatedWeight: _estimatedWeight,
+                                fromResultsScreen: true,
+                              ),
+                            ),
+                          );
+
                       // Update values if returned from meal_confirmation_screen
                       if (result != null) {
-                        print('DEBUG RESULTS: Received result from meal_confirmation_screen: $result');
+                        print(
+                          'DEBUG RESULTS: Received result from meal_confirmation_screen: $result',
+                        );
                         setState(() {
                           _calories = result['calories'] ?? _calories;
                           _protein = result['protein'] ?? _protein;
                           _carbs = result['carbs'] ?? _carbs;
                           _fat = result['fat'] ?? _fat;
-                          _estimatedWeight = result['estimatedWeight'] ?? _estimatedWeight;
+                          _estimatedWeight =
+                              result['estimatedWeight'] ?? _estimatedWeight;
                           // Check if image was uploaded to GCS
                           if (result['imageUrl'] != null) {
                             _uploadedImageUrl = result['imageUrl'].toString();
-                            print('DEBUG RESULTS: Image uploaded! URL: $_uploadedImageUrl');
+                            print(
+                              'DEBUG RESULTS: Image uploaded! URL: $_uploadedImageUrl',
+                            );
                           }
                         });
                       }
@@ -423,6 +438,235 @@ class _ResultsScreenState extends State<ResultsScreen> {
     );
   }
 
+  // Helper method to get today's total carbs
+  double _getTodayTotalCarbs() {
+    final sessionData = Provider.of<SessionData>(context, listen: false);
+    final meals = sessionData.getMealsForDate(DateTime.now());
+    double total = 0;
+    for (var meal in meals) {
+      total += (meal['carbs'] as num?)?.toDouble() ?? 0;
+    }
+    return total;
+  }
+
+  // Helper method to get today's total sodium
+  double _getTodayTotalSodium() {
+    final sessionData = Provider.of<SessionData>(context, listen: false);
+    final meals = sessionData.getMealsForDate(DateTime.now());
+    double total = 0;
+    for (var meal in meals) {
+      total += (meal['sodium'] as num?)?.toDouble() ?? 0;
+    }
+    return total;
+  }
+
+  // Widget สำหรับแสดง Carb/Sodium Quota เทียบกับเป้าหมายวันนี้
+  Widget _buildCarbSodiumQuotaCard() {
+    final sessionData = Provider.of<SessionData>(context, listen: false);
+    final userDiseases = sessionData.diseases ?? [];
+
+    // ถ้าไม่มีโรค ไม่แสดง
+    if (userDiseases.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final todayCarbsTotal = _getTodayTotalCarbs();
+    final todaySodiumTotal = _getTodayTotalSodium();
+    final carbTarget = sessionData.diabetesCarbLimit ?? 150.0;
+    final sodiumTarget = sessionData.hypertensionSodiumLimit ?? 2000.0;
+
+    final hasDiabetes = userDiseases.contains('diabetes');
+    final hasHypertension = userDiseases.contains('hypertension');
+
+    // ถ้าไม่มี diabetes หรือ hypertension ไม่แสดง
+    if (!hasDiabetes && !hasHypertension) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Carbs Quota Card (for diabetes)
+        if (hasDiabetes) ...[
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'โควตาคาร์บประจำวัน',
+                      style: GoogleFonts.kanit(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF2C2C2C),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.purple.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '${(todayCarbsTotal + _carbs).toStringAsFixed(1)} / ${carbTarget.toStringAsFixed(1)} g',
+                        style: GoogleFonts.kanit(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.purple[700],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'วันนี้: ${todayCarbsTotal.toStringAsFixed(1)}g + อาหารนี้: ${_carbs.toStringAsFixed(1)}g',
+                  style: GoogleFonts.kanit(
+                    fontSize: 13,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: LinearProgressIndicator(
+                    value: ((todayCarbsTotal + _carbs) / carbTarget).clamp(
+                      0.0,
+                      1.5,
+                    ),
+                    minHeight: 8,
+                    backgroundColor: Colors.grey[200],
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      _getCarbStatusColor(todayCarbsTotal + _carbs, carbTarget),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        // Sodium Quota Card (for hypertension)
+        if (hasHypertension) ...[
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'โควตาโซเดียมประจำวัน',
+                      style: GoogleFonts.kanit(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF2C2C2C),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '${(todaySodiumTotal + 0).toStringAsFixed(1)} / ${sodiumTarget.toStringAsFixed(1)} mg',
+                        style: GoogleFonts.kanit(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.red[700],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'วันนี้: ${todaySodiumTotal.toStringAsFixed(1)}mg + อาหารนี้: 0mg (ยังไม่ได้คำนวณ)',
+                  style: GoogleFonts.kanit(
+                    fontSize: 13,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: LinearProgressIndicator(
+                    value: ((todaySodiumTotal) / sodiumTarget).clamp(0.0, 1.5),
+                    minHeight: 8,
+                    backgroundColor: Colors.grey[200],
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      _getSodiumStatusColor(todaySodiumTotal, sodiumTarget),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  // Helper method to determine carb status color
+  Color _getCarbStatusColor(double current, double target) {
+    if (current < target * 0.8) {
+      return Colors.green;
+    } else if (current >= target * 0.8 && current <= target) {
+      return Colors.green;
+    } else if (current > target && current <= target * 1.2) {
+      return Colors.orange;
+    } else {
+      return Colors.red;
+    }
+  }
+
+  // Helper method to determine sodium status color
+  Color _getSodiumStatusColor(double current, double target) {
+    if (current < target * 0.8) {
+      return Colors.green;
+    } else if (current >= target * 0.8 && current <= target) {
+      return Colors.green;
+    } else if (current > target && current <= target * 1.2) {
+      return Colors.orange;
+    } else {
+      return Colors.red;
+    }
+  }
+
   // Widget สำหรับแสดงคำแนะนำตามโรค (เฉพาะโรคที่ผู้ใช้มี)
   Widget _buildDiseaseRecommendations() {
     final sessionData = Provider.of<SessionData>(context, listen: false);
@@ -433,284 +677,335 @@ class _ResultsScreenState extends State<ResultsScreen> {
       return const SizedBox.shrink();
     }
 
-    // สร้าง list ของ recommendations ที่มีข้อมูล (filter out null)
-    final diseaseRecommendationPairs = <MapEntry<String, food_rec.FoodRecommendation?>>[];
-    
-    for (final disease in userDiseases) {
-      final recommendation = food_rec.FoodRecommendationDatabase
-          .getRecommendation(widget.result.foodName, disease);
-      diseaseRecommendationPairs.add(MapEntry(disease, recommendation));
-    }
-
-    // ถ้าไม่มีข้อมูลคำแนะนำสำหรับอาหารนี้เลย ไม่แสดง
-    if (diseaseRecommendationPairs.every((e) => e.value == null)) {
-      return const SizedBox.shrink();
-    }
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // หัวข้อคำแนะนำ
         Text(
           'แนะนำสำหรับสุขภาพของคุณ',
-          style: GoogleFonts.kanit(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-          ),
+          style: GoogleFonts.kanit(fontSize: 22, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
 
-        // แสดงคำแนะนำสำหรับแต่ละโรค
-        ...diseaseRecommendationPairs.map((entry) {
-          final disease = entry.key;
-          final recommendation = entry.value;
+        // แสดงคำแนะนำแบบอัจฉริยะสำหรับแต่ละโรค
+        ...userDiseases.map((disease) {
+          final advice = _getSmartAdvice(
+            widget.result.foodName,
+            _carbs,
+            _fat,
+            _protein,
+            _sodium,
+            disease,
+          );
 
-          // ถ้าไม่มีคำแนะนำสำหรับโรคนี้ ข้ามไป
-          if (recommendation == null) {
-            return const SizedBox.shrink();
+          if (advice == null) {
+            return const SizedBox.shrink() as Widget;
           }
 
-          // ชื่อโรค
-          String diseaseName = 'โรค';
-          if (disease == 'diabetes') {
-            diseaseName = 'เบาหวาน';
-          } else if (disease == 'hypertension') {
-            diseaseName = 'ความดันโลหิตสูง';
-          }
+          return _buildSmartAdviceCard(disease, advice);
+        }).toList(),
+      ],
+    );
+  }
 
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 16.0),
-            child: Card(
-              elevation: 6,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+  // Helper method: สร้างคำแนะนำแบบอัจฉริยะ
+  SmartAdviceResult? _getSmartAdvice(
+    String foodName,
+    double carbs,
+    double fat,
+    double protein,
+    double sodium,
+    String disease,
+  ) {
+    final categoryId = FoodCategoryDatabase.getFoodCategory(foodName);
+    if (categoryId == null) return null;
+
+    final nutrients = NutrientData(
+      sodiumMg: sodium,
+      carbsG: carbs,
+      fiberG: 2.0,
+      fatG: fat,
+      proteinG: protein,
+    );
+
+    final results = SmartAdviceGenerator.generateAdviceForConditions(
+      foodName: foodName,
+      categoryId: categoryId,
+      nutrients: nutrients,
+      userConditions: [disease],
+    );
+
+    return results[disease];
+  }
+
+  // Helper method: UI card สำหรับแสดงคำแนะนำ
+  Widget _buildSmartAdviceCard(String disease, SmartAdviceResult advice) {
+    final diseaseLabel =
+        disease == 'diabetes' ? 'เบาหวาน' : 'ความดันโลหิตสูง';
+    final statusColor = _getStatusColor(advice.suitable);
+    final statusIcon = _getStatusIcon(advice.suitable);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: Card(
+        elevation: 6,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ชื่อโรค
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
                 ),
-                child: Column(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFABB5A),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Text(
+                  diseaseLabel,
+                  style: GoogleFonts.kanit(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // สถานะ (เหมาะสม/ไม่เหมาะสม/ควรระวัง)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: statusColor, width: 1),
+                ),
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ชื่อโรค
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFABB5A),
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      child: Text(
-                        diseaseName,
-                        style: GoogleFonts.kanit(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // ✅ เหมาะสม or ❌ ไม่เหมาะสม (Dynamic)
-                    Builder(
-                      builder: (context) {
-                        final isNotSuitable = recommendation.suitable.contains('ไม่เหมาะสม');
-                        final bgColor = isNotSuitable ? Colors.red[50] : Colors.green[50];
-                        final borderColor = isNotSuitable ? Colors.red[200] : Colors.green[200];
-                        final iconColor = isNotSuitable ? Colors.red[600] : Colors.green[600];
-                        final textColor = isNotSuitable ? Colors.red[800] : Colors.green[800];
-                        final headerColor = isNotSuitable ? Colors.red[700] : Colors.green[700];
-                        final icon = isNotSuitable ? Icons.cancel : Icons.check_circle;
-                        final label = isNotSuitable ? 'ไม่เหมาะสม' : 'เหมาะสม';
-
-                        return Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: bgColor,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: borderColor!,
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(icon, color: iconColor, size: 22),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      label,
-                                      style: GoogleFonts.kanit(
-                                        fontSize: 13,
-                                        color: headerColor,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      recommendation.suitable,
-                                      style: GoogleFonts.kanit(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.bold,
-                                        color: textColor,
-                                        height: 1.4,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 12),
-
-                    // ⚠️ ข้อควรระวัง
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.orange[50],
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.orange[200]!,
-                          width: 1,
-                        ),
-                      ),
-                      child: Row(
+                    Text(statusIcon, style: const TextStyle(fontSize: 24)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.warning_amber,
-                              color: Colors.orange[700], size: 22),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'ข้อควรระวัง',
-                                  style: GoogleFonts.kanit(
-                                    fontSize: 13,
-                                    color: Colors.orange[700],
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  recommendation.warning,
-                                  style: GoogleFonts.kanit(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.orange[800],
-                                    height: 1.4,
-                                  ),
-                                ),
-                              ],
+                          Text(
+                            _getStatusLabel(advice.suitable),
+                            style: GoogleFonts.kanit(
+                              fontSize: 13,
+                              color: statusColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            advice.suitable,
+                            style: GoogleFonts.kanit(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: statusColor,
+                              height: 1.4,
                             ),
                           ),
                         ],
                       ),
                     ),
-
-                    // 💡 คำแนะนำเพิ่มเติม
-                    if (recommendation.notes.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.blue[50],
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.blue[200]!,
-                            width: 1,
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(Icons.info,
-                                    color: Colors.blue[700], size: 20),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'คำแนะนำเพิ่มเติม',
-                                  style: GoogleFonts.kanit(
-                                    fontSize: 13,
-                                    color: Colors.blue[700],
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            ...recommendation.notes.map((note) {
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 6.0),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '• ',
-                                      style: GoogleFonts.kanit(
-                                        fontSize: 15,
-                                        color: Colors.blue[600],
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    Expanded(
-                                      child: Text(
-                                        note,
-                                        style: GoogleFonts.kanit(
-                                          fontSize: 14,
-                                          color: Colors.blue[800],
-                                          height: 1.5,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }),
-                          ],
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ),
-            ),
-          );
-        }),
-      ],
+
+              // ข้อควรระวัง
+              if (advice.warnings.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.orange[200]!,
+                      width: 1,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.warning_amber,
+                            color: Colors.orange[700],
+                            size: 22,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'ข้อควรระวัง',
+                            style: GoogleFonts.kanit(
+                              fontSize: 13,
+                              color: Colors.orange[700],
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      ...advice.warnings.map((warning) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 6.0),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '• ',
+                                style: GoogleFonts.kanit(
+                                  fontSize: 15,
+                                  color: Colors.orange[600],
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  warning,
+                                  style: GoogleFonts.kanit(
+                                    fontSize: 14,
+                                    color: Colors.orange[800],
+                                    height: 1.5,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              ],
+
+              // คำแนะนำเพิ่มเติม
+              if (advice.notes.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.blue[200]!,
+                      width: 1,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.info,
+                            color: Colors.blue[700],
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'คำแนะนำเพิ่มเติม',
+                            style: GoogleFonts.kanit(
+                              fontSize: 13,
+                              color: Colors.blue[700],
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      ...advice.notes.map((note) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 6.0),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '• ',
+                                style: GoogleFonts.kanit(
+                                  fontSize: 15,
+                                  color: Colors.blue[600],
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  note,
+                                  style: GoogleFonts.kanit(
+                                    fontSize: 14,
+                                    color: Colors.blue[800],
+                                    height: 1.5,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
+  }
+
+  Color _getStatusColor(String suitable) {
+    if (suitable.contains('ไม่เหมาะสม')) return Colors.red;
+    if (suitable.contains('ควรระวัง')) return Colors.orange;
+    if (suitable.contains('เหมาะสมอย่างยิ่ง')) return Colors.green;
+    return Colors.blue;
+  }
+
+  String _getStatusIcon(String suitable) {
+    if (suitable.contains('ไม่เหมาะสม')) return '🔴';
+    if (suitable.contains('ควรระวัง')) return '🟠';
+    if (suitable.contains('เหมาะสมอย่างยิ่ง')) return '🟢';
+    return '🟡';
+  }
+
+  String _getStatusLabel(String suitable) {
+    if (suitable.contains('ไม่เหมาะสม')) return 'ไม่เหมาะสม';
+    if (suitable.contains('ควรระวัง')) return 'ควรระวัง';
+    if (suitable.contains('เหมาะสมอย่างยิ่ง')) return 'เหมาะสมอย่างยิ่ง';
+    return 'เหมาะสม';
   }
 
   // Handle meal confirmation asynchronously to prevent UI freezing
   Future<void> _handleConfirmMeal() async {
     // Show loading indicator
     if (!mounted) return;
-    
+
     // Use current edited nutrition values from state
     final mealService = MealService();
     final imageUploadService = ImageUploadService();
-    
+
     try {
       String? finalImageUrl = _uploadedImageUrl;
-      
+
       // If image not yet uploaded and we have an image file, upload it now
       if (finalImageUrl == null && widget.imageFile != null) {
         print('DEBUG RESULTS: Uploading image directly from results_screen...');
@@ -729,39 +1024,46 @@ class _ResultsScreenState extends State<ResultsScreen> {
             confidence: widget.result.confidence,
           );
           print('DEBUG RESULTS: Image upload result: $finalImageUrl');
-          print('DEBUG RESULTS: uploadFoodImageWithMealData already saved the meal, no need to call saveMeal again');
-          
+          print(
+            'DEBUG RESULTS: uploadFoodImageWithMealData already saved the meal, no need to call saveMeal again',
+          );
+
           // uploadFoodImageWithMealData() already saved the meal, so we're done
           if (!mounted) return;
-          
+
           // Just reload meals from backend and navigate back
           final sessionData = Provider.of<SessionData>(context, listen: false);
           final today = DateTime.now();
           final startOfDay = DateTime(today.year, today.month, today.day);
-          final endOfDay = startOfDay.add(const Duration(days: 1)).subtract(const Duration(seconds: 1));
-          
+          final endOfDay = startOfDay
+              .add(const Duration(days: 1))
+              .subtract(const Duration(seconds: 1));
+
           final startDateStr = startOfDay.toIso8601String().split('.')[0];
           final endDateStr = endOfDay.toIso8601String().split('.')[0];
-          
+
           final reloadResponse = await mealService.getMealHistory(
             startDate: startDateStr,
             endDate: endDateStr,
             limit: 100,
           );
-          
+
           if (!mounted) return;
-          
+
           if (reloadResponse['success']) {
             sessionData.clearMealsForDate(today);
             final meals = reloadResponse['meals'] as List?;
             if (meals != null && meals.isNotEmpty) {
               for (var meal in meals) {
-                final mealDate = DateTime.parse(meal['mealTime'] as String).add(const Duration(hours: 7));
+                final mealDate = DateTime.parse(
+                  meal['mealTime'] as String,
+                ).add(const Duration(hours: 7));
                 sessionData.addMeal({
                   'foodName': meal['foodName'],
                   'calories': (meal['nutrition']?['calories'] ?? 0).toDouble(),
                   'protein': (meal['nutrition']?['protein'] ?? 0).toDouble(),
-                  'carbs': (meal['nutrition']?['carbohydrates'] ?? 0).toDouble(),
+                  'carbs': (meal['nutrition']?['carbohydrates'] ?? 0)
+                      .toDouble(),
                   'fat': (meal['nutrition']?['fat'] ?? 0).toDouble(),
                   'fiber': (meal['nutrition']?['fiber'] ?? 0).toDouble(),
                   'sodium': (meal['nutrition']?['sodium'] ?? 0).toDouble(),
@@ -775,7 +1077,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
               }
             }
           }
-          
+
           if (!mounted) return;
           // Pop twice: once for results_screen, once for image_picker_screen
           Navigator.of(context).pop();
@@ -786,12 +1088,14 @@ class _ResultsScreenState extends State<ResultsScreen> {
           // If upload fails, fall back to saveMeal without image
         }
       }
-      
+
       // If image already uploaded via edit, don't call saveMeal again
       Map<String, dynamic>? response;
       if (_uploadedImageUrl == null && finalImageUrl == null) {
         // Only call saveMeal if we didn't upload image
-        print('DEBUG RESULTS: _handleConfirmMeal - Saving meal with imageUrl: $finalImageUrl');
+        print(
+          'DEBUG RESULTS: _handleConfirmMeal - Saving meal with imageUrl: $finalImageUrl',
+        );
         response = await mealService.saveMeal(
           foodName: widget.result.foodName,
           calories: _calories.toInt(),
@@ -799,7 +1103,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
           carbs: _carbs,
           fat: _fat,
           fiber: 0.0,
-          sodium: 0.0,
+          sodium: _sodium,
           estimatedWeight: _estimatedWeight,
           confidence: widget.result.confidence,
           mealType: 'lunch',
@@ -809,34 +1113,42 @@ class _ResultsScreenState extends State<ResultsScreen> {
         print('DEBUG RESULTS: saveMeal response: $response');
       } else {
         // Meal already saved via upload, just reload from backend
-        print('DEBUG RESULTS: Meal already saved via upload, skipping saveMeal call');
+        print(
+          'DEBUG RESULTS: Meal already saved via upload, skipping saveMeal call',
+        );
         response = {'success': true};
       }
-      
+
       if (!mounted) return;
-      
+
       if (response != null && response['success']) {
         // After saving to backend, reload meals from backend
         // This ensures the data is in sync with database timestamps
         final sessionData = Provider.of<SessionData>(context, listen: false);
-        
+
         // Reload meals for today to get the newly saved meal with correct timestamp
         final today = DateTime.now();
         final startOfDay = DateTime(today.year, today.month, today.day);
-        final endOfDay = startOfDay.add(const Duration(days: 1)).subtract(const Duration(seconds: 1));
-        
+        final endOfDay = startOfDay
+            .add(const Duration(days: 1))
+            .subtract(const Duration(seconds: 1));
+
         // Send as Bangkok local times (without Z)
-        final startDateStr = startOfDay.toIso8601String().split('.')[0]; // 2026-01-28T00:00:00
-        final endDateStr = endOfDay.toIso8601String().split('.')[0];     // 2026-01-29T00:00:00
-        
+        final startDateStr = startOfDay.toIso8601String().split(
+          '.',
+        )[0]; // 2026-01-28T00:00:00
+        final endDateStr = endOfDay.toIso8601String().split(
+          '.',
+        )[0]; // 2026-01-29T00:00:00
+
         final reloadResponse = await mealService.getMealHistory(
           startDate: startDateStr,
           endDate: endDateStr,
           limit: 100,
         );
-        
+
         if (!mounted) return;
-        
+
         if (reloadResponse['success']) {
           // Clear today's meals and reload from backend
           sessionData.clearMealsForDate(today);
@@ -846,8 +1158,10 @@ class _ResultsScreenState extends State<ResultsScreen> {
               // Convert UTC to Bangkok time (UTC+7) before extracting date
               final utcTime = DateTime.parse(meal['mealTime'] as String);
               final bangkokTime = utcTime.add(const Duration(hours: 7));
-              final dateInBangkokTime = bangkokTime.toString().split(' ')[0]; // YYYY-MM-DD
-              
+              final dateInBangkokTime = bangkokTime.toString().split(
+                ' ',
+              )[0]; // YYYY-MM-DD
+
               sessionData.addMeal({
                 'foodName': meal['foodName'],
                 'calories': (meal['nutrition']?['calories'] ?? 0).toDouble(),
@@ -865,7 +1179,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
             }
           }
         }
-        
+
         // Show success notification
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -874,7 +1188,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
             duration: const Duration(seconds: 2),
           ),
         );
-        
+
         // Navigate back to home screen
         if (mounted) {
           Navigator.of(context).pop();

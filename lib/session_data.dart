@@ -32,9 +32,6 @@ class SessionData with ChangeNotifier {
   double? diabetesCarbLimit; // เป้าหมายคาร์โบไฮเดรตต่อวัน (กรัม)
   double? hypertensionSodiumLimit; // เป้าหมายโซเดียมต่อวัน (มิลลิกรัม)
 
-  // ข้อมูลแจ้งเตือนการฉีดอินซูลิน
-  List<Map<String, dynamic>> insulinReminders = []; // [{'hour': 9, 'minute': 20, 'id': 'xxx'}, ...]
-
   // ข้อมูลการรับประทานอาหาร พร้อมวันที่ (เก็บแยกตามวันที่)
   Map<String, List<Map<String, dynamic>>> mealsByDate = {}; // date (YYYY-MM-DD) -> meals list
   DateTime? selectedDate; // วันที่ที่เลือกสำหรับแสดงผล
@@ -165,45 +162,6 @@ class SessionData with ChangeNotifier {
   // Check if user has hypertension
   bool hasHypertension() {
     return diseases?.contains('hypertension') ?? false;
-  }
-
-  // ฟังก์ชันสำหรับจัดการแจ้งเตือนการฉีดอินซูลิน
-  void addInsulinReminder(int hour, int minute) {
-    final id = DateTime.now().millisecondsSinceEpoch.toString();
-    insulinReminders.add({
-      'id': id,
-      'hour': hour,
-      'minute': minute,
-    });
-    insulinReminders.sort((a, b) {
-      if (a['hour'] != b['hour']) return a['hour'].compareTo(b['hour']);
-      return a['minute'].compareTo(b['minute']);
-    });
-    notifyListeners();
-  }
-
-  void removeInsulinReminder(String id) {
-    insulinReminders.removeWhere((reminder) => reminder['id'] == id);
-    notifyListeners();
-  }
-
-  void updateInsulinReminder(String id, int hour, int minute) {
-    for (var reminder in insulinReminders) {
-      if (reminder['id'] == id) {
-        reminder['hour'] = hour;
-        reminder['minute'] = minute;
-        break;
-      }
-    }
-    insulinReminders.sort((a, b) {
-      if (a['hour'] != b['hour']) return a['hour'].compareTo(b['hour']);
-      return a['minute'].compareTo(b['minute']);
-    });
-    notifyListeners();
-  }
-
-  List<Map<String, dynamic>> getInsulinReminders() {
-    return insulinReminders;
   }
 
   // ฟังก์ชันสำหรับเคลียร์ข้อมูล

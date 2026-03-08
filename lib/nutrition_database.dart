@@ -5,12 +5,14 @@ class CalculationResult {
   final double protein;
   final double fat;
   final double carbs;
+  final double sodium;
 
   const CalculationResult({
     required this.calories,
     required this.protein,
     required this.fat,
     required this.carbs,
+    required this.sodium,
   });
 }
 
@@ -20,6 +22,7 @@ class NutritionInfo {
   final double protein;      // g
   final double fat;         // g
   final double carbs;       // g
+  final double sodium;      // mg
   final String description; // คำอธิบายเพิ่มเติม
 
   const NutritionInfo({
@@ -28,6 +31,7 @@ class NutritionInfo {
     required this.protein,
     required this.fat,
     required this.carbs,
+    required this.sodium,
     required this.description,
   });
 }
@@ -36,98 +40,110 @@ class NutritionDatabase {
   static const Map<String, NutritionInfo> database = {
     'แกงเขียวหวานไก่': NutritionInfo(
       foodName: 'แกงเขียวหวานไก่',
-      calories: 240, // อ้างอิงค่าเฉลี่ยแกงกะทิปรุงสำเร็จ 
+      calories: 240,
       protein: 13.2, 
       fat: 16.5,    
       carbs: 9.6,
+      sodium: 900,
       description: 'แกงเขียวหวานไก่ อาหารไทยรสจัดจ้าน สารอาหารต่อ 100 กรัม ตามมาตรฐานกรมอนามัย',
     ),
     'แกงจืดมะระยัดไส้หมูสับ': NutritionInfo(
       foodName: 'แกงจืดมะระยัดไส้หมูสับ',
-      calories: 85,  // ค่าพลังงานจะต่ำลงเมื่อคิดรวมน้ำซุปต่อ 100 กรัม 
+      calories: 85,
       protein: 7.4,  
       fat: 4.8,
       carbs: 3.1,
+      sodium: 850,
       description: 'แกงจืดมะระยัดไส้หมูสับ ให้คุณค่าทางโภชนาการสูง พลังงานต่ำต่อหน่วยน้ำหนัก',
     ),
     'ไข่ดาว': NutritionInfo(
       foodName: 'ไข่ดาว',
-      calories: 327, // ไข่ไก่ทอดน้ำมันต่อ 100 กรัม (ประมาณ 2 ฟอง) 
-      protein: 12.8, // โปรตีนมาตรฐานจากไข่ไก่ [cite: 461, 462]
-      fat: 28.5,    // ไขมันรวมจากไข่แดงและน้ำมันทอด 
+      calories: 327,
+      protein: 12.8,
+      fat: 28.5,
       carbs: 0.8,
+      sodium: 700,
       description: 'ไข่ดาวทอดน้ำมัน ข้อมูลต่อ 100 กรัม (ประมาณ 2 ฟองเบอร์ 2)',
     ),
     'ก๋วยจั๊บ': NutritionInfo(
       foodName: 'ก๋วยจั๊บ',
-      calories: 115, // ก๋วยจั๊บน้ำข้นรวมเครื่องต่อ 100 กรัม [cite: 467, 468]
+      calories: 115,
       protein: 4.8,
       fat: 3.2,
-      carbs: 16.8,   // คาร์โบไฮเดรตหลักจากเส้นแป้ง 
+      carbs: 16.8,
+      sodium: 950,
       description: 'ก๋วยจั๊บน้ำข้น สารอาหารเฉลี่ยรวมเส้น เครื่องใน และน้ำซุป',
     ),
     'กุ้งเผา': NutritionInfo(
       foodName: 'กุ้งเผา',
-      calories: 92,  // กุ้งก้ามกรามเผา/ย่าง [cite: 459, 460]
-      protein: 20.4, // โปรตีนมาตรฐานเนื้อกุ้ง [cite: 459]
+      calories: 92,
+      protein: 20.4,
       fat: 1.2,      
-      carbs: 0.0,    // เนื้อสัตว์ไม่มีคาร์โบไฮเดรต [cite: 459]
+      carbs: 0.0,
+      sodium: 800,
       description: 'กุ้งก้ามกรามเผาสด โปรตีนสูง ไขมันต่ำ (เฉพาะส่วนเนื้อ)',
     ),
     'กุ้งอบวุ้นเส้น': NutritionInfo(
       foodName: 'กุ้งอบวุ้นเส้น',
-      calories: 165, // รวมน้ำหนักวุ้นเส้นและเครื่องปรุง 
+      calories: 165,
       protein: 9.2, 
       fat: 5.4,      
-      carbs: 20.0,   // คาร์โบไฮเดรตจากวุ้นเส้น 
+      carbs: 20.0,
+      sodium: 920,
       description: 'กุ้งอบวุ้นเส้น สารอาหารเฉลี่ยต่อ 100 กรัม (รวมเครื่องปรุง)',
     ),
     'แกงจืด': NutritionInfo(
       foodName: 'แกงจืด',
-      calories: 45,  // แกงจืดผักรวมหมูสับน้ำใส 
+      calories: 45,
       protein: 3.8,
       fat: 2.5,
       carbs: 1.8,
+      sodium: 750,
       description: 'แกงจืดผักรวม สารอาหารเฉลี่ยต่อ 100 กรัม (เน้นน้ำซุป)',
     ),
     'ไก่ทอด': NutritionInfo(
       foodName: 'ไก่ทอด',
-      calories: 275, // ไก่ทอดชุบแป้งรวมหนัง [cite: 457, 458]
+      calories: 275,
       protein: 18.5, 
       fat: 19.0,     
-      carbs: 7.5,     
+      carbs: 7.5,
+      sodium: 880,     
       description: 'ไก่ทอดกรอบ ข้อมูลรวมแป้งชุบทอดและน้ำมันที่ดูดซับ',
     ),
     'ไก่ย่าง': NutritionInfo(
       foodName: 'ไก่ย่าง',
-      calories: 175, // ไก่ย่างรวมหนัง (ไม่ชุบแป้ง) [cite: 457, 458]
+      calories: 175,
       protein: 22.0, 
       fat: 8.5,      
       carbs: 1.2,
+      sodium: 750,
       description: 'ไก่ย่าง สารอาหารหลักจากเนื้อและหนังไก่',
     ),
     'ขนมจีนน้ำยาไก่': NutritionInfo(
       foodName: 'ขนมจีนน้ำยาไก่',
-      calories: 105, // เส้นขนมจีนผสมน้ำยากะทิ [cite: 447, 467]
+      calories: 105,
       protein: 4.2,
       fat: 4.5,
-      carbs: 12.0,   
+      carbs: 12.0,
+      sodium: 900,   
       description: 'ขนมจีนน้ำยากะทิ สารอาหารเฉลี่ยต่อ 100 กรัม',
     ),
     'ข้าวคลุกกะปิ': NutritionInfo(
       foodName: 'ข้าวคลุกกะปิ',
-      calories: 210, // ข้าวสวยผสมเครื่องเคียงตามมาตรฐาน 
+      calories: 210,
       protein: 6.8,
       fat: 7.2,
-      carbs: 29.5,   // คาร์โบไฮเดรตจากข้าวขาว 
+      carbs: 29.5,
+      sodium: 1000,   
       description: 'ข้าวคลุกกะปิ รวมเครื่องเคียงตามสัดส่วนมาตรฐาน',
     ),
     'ข้าวหมูทอดกระเทียม': NutritionInfo(
       foodName: 'ข้าวหมูทอดกระเทียม',
-      calories: 265, // ข้าวสวยและหมูทอดน้ำมัน 
+      calories: 265,
       protein: 10.5,
       fat: 11.0,
-      carbs: 31.0,   
+      carbs: 31.0,
+      sodium: 1100,   
       description: 'ข้าวหมูทอดกระเทียม สารอาหารเฉลี่ยต่อ 100 กรัม',
     ),
 };
@@ -169,6 +185,7 @@ class NutritionDatabase {
           protein: 0,
           fat: 0,
           carbs: 0,
+          sodium: 0,
         );
       }
 
@@ -179,6 +196,7 @@ class NutritionDatabase {
         protein: info.protein * ratio,
         fat: info.fat * ratio,
         carbs: info.carbs * ratio,
+        sodium: info.sodium * ratio,
       );
     }
 
