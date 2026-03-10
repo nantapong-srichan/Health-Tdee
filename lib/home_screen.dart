@@ -303,8 +303,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 // ใช้ข้อมูล goal จาก sessionData มาแสดงผล
                 _buildTodayCaloriesCard(kanitTheme, sessionData.goal ?? '...'),
                 const SizedBox(height: 24),
-                // Diabetes carbs card (only for users with diabetes) - show after today calories
-                if (sessionData.hasDiabetes()) ...[
+                // Diabetes carbs card (only for Type 2 diabetes users) - show after today calories
+                if (sessionData.hasDiabetes() && sessionData.diabetesType == 'type2') ...[
                   _buildDiabetesCarbsCard(kanitTheme, sessionData),
                   const SizedBox(height: 24),
                 ],
@@ -1516,6 +1516,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 'protein': (meal['protein'] ?? 0).toDouble(),
                 'carbs': (meal['carbs'] ?? 0).toDouble(),
                 'fat': (meal['fat'] ?? 0).toDouble(),
+                'sodium': (meal['sodium'] ?? 0).toDouble(),
               },
               estimatedWeight: (meal['estimatedWeight'] ?? 100.0).toDouble(),
             ),
@@ -1951,6 +1952,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     borderData: fl_chart.FlBorderData(show: false),
                     minY: 0,
                     maxY: goalCalories * 1.2,
+                    barTouchData: fl_chart.BarTouchData(
+                      enabled: true,
+                      handleBuiltInTouches: true,
+                      touchTooltipData: fl_chart.BarTouchTooltipData(
+                        getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                          return fl_chart.BarTooltipItem(
+                            '${rod.toY.toStringAsFixed(1)}kcal',
+                            const TextStyle(color: Colors.white),
+                          );
+                        },
+                      ),
+                    ),
                     barGroups: List.generate(
                       chartData.length,
                       (index) => fl_chart.BarChartGroupData(
@@ -1969,8 +1982,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
-              // Display carbs chart for diabetes patients (7-day view)
-              if (data.hasDiabetes()) ...[
+              // Display carbs chart for Type 2 diabetes patients (7-day view)
+              if (data.hasDiabetes() && data.diabetesType == 'type2') ...[
                 _build7DaysCarbsChart(theme, data),
               ],
               // Display sodium charts for hypertension patients (7-day view)
@@ -2092,6 +2105,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     borderData: fl_chart.FlBorderData(show: false),
                     minY: 0,
                     maxY: carbLimit * 1.2,
+                    barTouchData: fl_chart.BarTouchData(
+                      enabled: true,
+                      handleBuiltInTouches: true,
+                      touchTooltipData: fl_chart.BarTouchTooltipData(
+                        getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                          return fl_chart.BarTooltipItem(
+                            '${rod.toY.toStringAsFixed(2)}g',
+                            const TextStyle(color: Colors.white),
+                          );
+                        },
+                      ),
+                    ),
                     barGroups: List.generate(
                       chartData.length,
                       (index) => fl_chart.BarChartGroupData(
@@ -2228,6 +2253,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     borderData: fl_chart.FlBorderData(show: false),
                     minY: 0,
                     maxY: goalCalories * 1.2,
+                    barTouchData: fl_chart.BarTouchData(
+                      enabled: true,
+                      handleBuiltInTouches: true,
+                      touchTooltipData: fl_chart.BarTouchTooltipData(
+                        getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                          return fl_chart.BarTooltipItem(
+                            '${rod.toY.toStringAsFixed(1)}kcal',
+                            const TextStyle(color: Colors.white),
+                          );
+                        },
+                      ),
+                    ),
                     barGroups: List.generate(
                       chartData.length,
                       (index) => fl_chart.BarChartGroupData(
@@ -2246,8 +2283,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
-              // Display carbs chart for diabetes patients (14-day view)
-              if (data.hasDiabetes()) ...[
+              // Display carbs chart for Type 2 diabetes patients (14-day view)
+              if (data.hasDiabetes() && data.diabetesType == 'type2') ...[
                 _build14DaysCarbsChart(theme, data),
               ],
               // Display sodium charts for hypertension patients (14-day view)
@@ -2334,7 +2371,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       bottomTitles: fl_chart.AxisTitles(
                         sideTitles: fl_chart.SideTitles(
                           showTitles: true,
-                          interval: 2,
                           getTitlesWidget: (value, meta) {
                             final index = value.toInt();
                             if (index >= 0 && index < chartData.length) {
@@ -2371,6 +2407,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     borderData: fl_chart.FlBorderData(show: false),
                     minY: 0,
                     maxY: carbLimit * 1.2,
+                    barTouchData: fl_chart.BarTouchData(
+                      enabled: true,
+                      handleBuiltInTouches: true,
+                      touchTooltipData: fl_chart.BarTouchTooltipData(
+                        getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                          return fl_chart.BarTooltipItem(
+                            '${rod.toY.toStringAsFixed(2)}g',
+                            const TextStyle(color: Colors.white),
+                          );
+                        },
+                      ),
+                    ),
                     barGroups: List.generate(
                       chartData.length,
                       (index) => fl_chart.BarChartGroupData(
@@ -2511,6 +2559,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     borderData: fl_chart.FlBorderData(show: false),
                     minY: 0,
                     maxY: sodiumLimit * 1.2,
+                    barTouchData: fl_chart.BarTouchData(
+                      enabled: true,
+                      handleBuiltInTouches: true,
+                      touchTooltipData: fl_chart.BarTouchTooltipData(
+                        getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                          return fl_chart.BarTooltipItem(
+                            '${rod.toY.toStringAsFixed(2)}mg',
+                            const TextStyle(color: Colors.white),
+                          );
+                        },
+                      ),
+                    ),
                     barGroups: List.generate(
                       chartData.length,
                       (index) => fl_chart.BarChartGroupData(
@@ -2652,6 +2712,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     borderData: fl_chart.FlBorderData(show: false),
                     minY: 0,
                     maxY: sodiumLimit * 1.2,
+                    barTouchData: fl_chart.BarTouchData(
+                      enabled: true,
+                      handleBuiltInTouches: true,
+                      touchTooltipData: fl_chart.BarTouchTooltipData(
+                        getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                          return fl_chart.BarTooltipItem(
+                            '${rod.toY.toStringAsFixed(2)}mg',
+                            const TextStyle(color: Colors.white),
+                          );
+                        },
+                      ),
+                    ),
                     barGroups: List.generate(
                       chartData.length,
                       (index) => fl_chart.BarChartGroupData(

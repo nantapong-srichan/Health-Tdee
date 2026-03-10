@@ -124,6 +124,7 @@ class ImageUploadService {
       request.fields['nutrition[protein]'] = nutrition['protein']?.toString() ?? '0';
       request.fields['nutrition[carbohydrates]'] = nutrition['carbohydrates']?.toString() ?? '0';
       request.fields['nutrition[fat]'] = nutrition['fat']?.toString() ?? '0';
+      request.fields['nutrition[sodium]'] = nutrition['sodium']?.toString() ?? '0';
       request.fields['estimatedWeight'] = estimatedWeight.toString();
       request.fields['mealType'] = mealType;
 

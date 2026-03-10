@@ -21,6 +21,7 @@ class AuthService {
     required String activityLevel,
     required int dailyCalorieGoal,
     List<String>? diseases,
+    String? diabetesType, // เพิ่ม parameter สำหรับ type ของเบาหวาน
     double? diabetesCarbLimit,
   }) async {
     try {
@@ -40,6 +41,7 @@ class AuthService {
           'activityLevel': activityLevel,
           'dailyCalorieGoal': dailyCalorieGoal,
           if (diseases != null && diseases.isNotEmpty) 'diseases': diseases,
+          if (diabetesType != null) 'diabetesType': diabetesType,
           if (diabetesCarbLimit != null) 'diabetesCarbLimit': diabetesCarbLimit,
         },
       );
@@ -150,6 +152,7 @@ class AuthService {
     required String goal,
     required int dailyCalorieGoal,
     List<String>? diseases,
+    String? diabetesType, // เพิ่ม parameter สำหรับ type ของเบาหวาน
     double? diabetesCarbLimit,
     double? hypertensionSodiumLimit,
   }) async {
@@ -168,6 +171,7 @@ class AuthService {
           'goal': goal,
           'dailyCalorieGoal': dailyCalorieGoal,
           'diseases': diseases ?? [],
+          if (diabetesType != null) 'diabetesType': diabetesType,
           'diabetesCarbLimit': diabetesCarbLimit,
           'hypertensionSodiumLimit': hypertensionSodiumLimit,
         },

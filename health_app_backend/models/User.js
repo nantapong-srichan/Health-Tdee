@@ -98,9 +98,23 @@ const userSchema = new mongoose.Schema(
       default: [],
       description: 'List of chronic diseases (e.g., diabetes, hypertension)',
     },
+    diabetesType: {
+      type: String,
+      enum: {
+        values: ['type1', 'type2'],
+        message: 'Diabetes type must be either "type1" or "type2"'
+      },
+      default: null,
+      description: 'Type of diabetes (type1 or type2)',
+    },
     diabetesCarbLimit: {
       type: Number,
       description: 'Daily carbohydrate limit in grams for diabetic users',
+      default: null,
+    },
+    hypertensionSodiumLimit: {
+      type: Number,
+      description: 'Daily sodium limit in milligrams for hypertensive users',
       default: null,
     },
 

@@ -137,6 +137,7 @@ class SmartAdviceGenerator {
   ///   - categoryId: ID ของหมวดหมู่อาหาร
   ///   - nutrients: ข้อมูลสารอาหาร
   ///   - userConditions: รายชื่อโรคที่ผู้ใช้มี (เช่น ['diabetes', 'hypertension'])
+  ///   - diabetesType: ประเภทเบาหวาน ('type1' หรือ 'type2') - ถ้า null ถือว่าไม่มีเบาหวาน
   ///
   /// Returns:
   ///   - SmartAdviceResult ที่มี suitable, warning, notes สำหรับแต่ละโรค
@@ -145,6 +146,7 @@ class SmartAdviceGenerator {
     required String categoryId,
     required NutrientData nutrients,
     required List<String> userConditions,
+    String? diabetesType,
   }) {
     final results = <String, SmartAdviceResult>{};
 
@@ -159,6 +161,7 @@ class SmartAdviceGenerator {
         category: category,
         nutrients: nutrients,
         condition: condition,
+        diabetesType: diabetesType,
       );
     }
 
@@ -171,12 +174,27 @@ class SmartAdviceGenerator {
     required FoodCategory category,
     required NutrientData nutrients,
     required String condition,
+    String? diabetesType,
   }) {
     if (condition == 'diabetes') {
-      return _generateDiabetesAdvice(
-        category: category,
-        nutrients: nutrients,
-      );
+      // แยกตาม Type 1 vs Type 2
+      if (diabetesType == 'type1') {
+        return _generateType1DiabetesAdvice(
+          category: category,
+          nutrients: nutrients,
+        );
+      } else if (diabetesType == 'type2') {
+        return _generateType2DiabetesAdvice(
+          category: category,
+          nutrients: nutrients,
+        );
+      } else {
+        // ค่าเริ่มต้น (ถ้าไม่ระบุ type)
+        return _generateDiabetesAdvice(
+          category: category,
+          nutrients: nutrients,
+        );
+      }
     } else if (condition == 'hypertension') {
       return _generateHypertensionAdvice(
         category: category,
@@ -252,6 +270,177 @@ class SmartAdviceGenerator {
 
     // เพิ่มคำแนะนำจากหมวดหมู่
     notes.add('• ${category.baseAdvice}');
+
+    return SmartAdviceResult(
+      suitable: suitable,
+      warnings: warnings,
+      notes: notes,
+    );
+  }
+
+  /// สร้างคำแนะนำสำหรับผู้ป่วยเบาหวาน Type 1
+  /// Type 1: Insulin-dependent - ต้องนับ carbs อย่างแม่นยำ ส่วนไขมันเป็นรองลงมา
+  static SmartAdviceResult _generateType1DiabetesAdvice({
+    required FoodCategory category,
+    required NutrientData nutrients,
+  }) {
+    final warnings = <String>[];
+    final notes = <String>[];
+
+    // สำหรับ Type 1 - Carb counting เป็นแบบ strict
+    bool carbsIsHigh = false;
+    if (nutrients.carbsG > 40) {
+      warnings.add('🔴 คาร์โบไฮเดรตสูง (${nutrients.carbsG.toStringAsFixed(1)}g) - ต้องนับแม่นยำ');
+      notes.add('⚠️ ต้องมีการวางแผน insulin ให้แม่นยำ');
+      carbsIsHigh = true;
+    } else if (nutrients.carbsG > 25) {
+      warnings.add('🟠 คาร์โบไฮเดรตปานกลาง (${nutrients.carbsG.toStringAsFixed(1)}g)');
+      notes.add('ต้องนับให้แม่นยำในการจ่าย insulin');
+      carbsIsHigh = true;
+    } else {
+      notes.add('✅ คาร์โบไฮเดรตต่ำ (${nutrients.carbsG.toStringAsFixed(1)}g) - ปลอดภัย');
+    }
+
+    // วิเคราะห์โปรตีน (carb-to-protein ratio สำคัญต่อ insulin dosing)
+    bool proteinIsLow = false;
+    if (nutrients.proteinG < 10) {
+      warnings.add('🟠 โปรตีนต่ำ (${nutrients.proteinG.toStringAsFixed(1)}g) - ยากต่อการควบคุมน้ำตาล');
+      notes.add('เพิ่มโปรตีนช่วยชะลอการขึ้นน้ำตาล');
+      proteinIsLow = true;
+    } else if (nutrients.proteinG >= 15) {
+      notes.add('✅ โปรตีนดี (${nutrients.proteinG.toStringAsFixed(1)}g) - ช่วยชะลอการดูดซึมคาร์บ');
+    } else {
+      notes.add('✅ โปรตีนปานกลาง (${nutrients.proteinG.toStringAsFixed(1)}g)');
+    }
+
+    // วิเคราะห์ไขมัน (สำหรับ Type 1 เป็นรองลงมา)
+    bool fatIsHigh = false;
+    if (nutrients.fatG > 20) {
+      warnings.add('🔴 ไขมันสูง (${nutrients.fatG.toStringAsFixed(1)}g) - อันตรายต่อหัวใจ');
+      notes.add('ลดปริมาณหรือหลีกเลี่ยง');
+      fatIsHigh = true;
+    } else if (nutrients.fatG > 15) {
+      warnings.add('🟠 ไขมันปานกลาง (${nutrients.fatG.toStringAsFixed(1)}g)');
+      fatIsHigh = true;
+    } else {
+      notes.add('✅ ไขมันต่ำ (${nutrients.fatG.toStringAsFixed(1)}g) - ดี');
+    }
+
+    // วิเคราะห์เส้นใยอาหาร (ช่วยชะลอการดูดซึมคาร์บ)
+    if (nutrients.fiberG < 3) {
+      notes.add('💡 เพิ่มเส้นใยอาหารช่วยให้ดูดซึมคาร์บช้าลง');
+    } else {
+      notes.add('✅ เส้นใยอาหารดี (${nutrients.fiberG.toStringAsFixed(1)}g)');
+    }
+
+    // สถานะรวม
+    String suitable;
+    if (carbsIsHigh && (proteinIsLow || fatIsHigh)) {
+      suitable = 'ระวัง - คาร์บสูง + อัตราส่วนคาร์บต่อโปรตีนไม่ดี';
+    } else if (carbsIsHigh) {
+      suitable = 'ต้องนับแม่นยำเพื่อปรับปริมาณยา (คาร์บสูง)';
+    } else if (fatIsHigh) {
+      suitable = 'ควรหลีกเลี่ยง - ไขมันสูง';
+    } else if (proteinIsLow) {
+      suitable = 'ควรระวัง - เพิ่มโปรตีน';
+    } else if (category.categoryId == 'clear_soup') {
+      suitable = 'เหมาะสม - คาร์บต่ำ + อัตราส่วนคาร์บต่อโปรตีนดี';
+    } else if (category.categoryId == 'grilled_protein') {
+      suitable = 'เหมาะสมดี - โปรตีนสูง คาร์บต่ำ (ง่ายต่อการปรับปริมาณยา)';
+    } else {
+      suitable = 'เหมาะสมปานกลาง';
+    }
+
+    notes.add('• ${category.baseAdvice}');
+    notes.add('💡 สำคัญ: ต้องนับคาร์บให้แม่นยำเพื่อปรับปริมาณยา (นับอัตราส่วนคาร์บต่อโปรตีนด้วย)');
+
+    return SmartAdviceResult(
+      suitable: suitable,
+      warnings: warnings,
+      notes: notes,
+    );
+  }
+
+  /// สร้างคำแนะนำสำหรับผู้ป่วยเบาหวาน Type 2
+  /// Type 2: Non-insulin dependent - ลดคาร์บและไขมัน + weight management + sodium control
+  static SmartAdviceResult _generateType2DiabetesAdvice({
+    required FoodCategory category,
+    required NutrientData nutrients,
+  }) {
+    final warnings = <String>[];
+    final notes = <String>[];
+
+    // สำหรับ Type 2 - Focus on ลดคาร์บโดยทั่วไป (ไม่ต้องแยกแต่ละมื้อ)
+    bool carbsIsHigh = false;
+    if (nutrients.carbsG > 50) {
+      warnings.add('🔴 คาร์โบไฮเดรตสูงมาก (${nutrients.carbsG.toStringAsFixed(1)}g) - อันตราย');
+      notes.add('ลดปริมาณการรับประทานอย่างมาก (ส่งผลต่อลดน้ำหนัก)');
+      carbsIsHigh = true;
+    } else if (nutrients.carbsG > 30) {
+      warnings.add('🟠 คาร์โบไฮเดรตปานกลาง (${nutrients.carbsG.toStringAsFixed(1)}g)');
+      notes.add('ควรดูแลปริมาณให้เข้มงวด (อันตรายต่อการลดน้ำหนัก)');
+      carbsIsHigh = true;
+    } else {
+      notes.add('✅ คาร์โบไฮเดรตต่ำ (${nutrients.carbsG.toStringAsFixed(1)}g) - โอเค');
+    }
+
+    // วิเคราะห์ไขมัน (สำหรับ Type 2 อันตรายต่อหัวใจ)
+    bool fatIsHigh = false;
+    if (nutrients.fatG > 20) {
+      warnings.add('🔴 ไขมันสูงมาก (${nutrients.fatG.toStringAsFixed(1)}g) - อันตรายต่อหัวใจ');
+      notes.add('ลดปริมาณหรือหลีกเลี่ยงเป็นประจำ (ส่วนใหญ่ไปกับการลดน้ำหนัก)');
+      fatIsHigh = true;
+    } else if (nutrients.fatG > 15) {
+      warnings.add('🟠 ไขมันปานกลาง (${nutrients.fatG.toStringAsFixed(1)}g)');
+      notes.add('ควรระมัดระวังปริมาณ');
+      fatIsHigh = true;
+    } else {
+      notes.add('✅ ไขมันต่ำ (${nutrients.fatG.toStringAsFixed(1)}g) - ดี');
+    }
+
+    // วิเคราะห์โซเดียม (Type 2 มักมี hypertension comorbidity)
+    bool sodiumIsHigh = false;
+    if (nutrients.sodiumMg > 800) {
+      warnings.add('🔴 โซเดียมสูงมาก (${nutrients.sodiumMg.toStringAsFixed(0)}mg) - อันตรายต่อความดันโลหิต');
+      notes.add('ลดการรับประทานอาหารเค็ม (ทำให้ความดันสูง + ลดน้ำหนักได้ยาก)');
+      sodiumIsHigh = true;
+    } else if (nutrients.sodiumMg > 500) {
+      warnings.add('🟠 โซเดียมปานกลาง (${nutrients.sodiumMg.toStringAsFixed(0)}mg)');
+      notes.add('ควรระวังการรับเกลือเพิ่มเติม');
+      sodiumIsHigh = true;
+    } else {
+      notes.add('✅ โซเดียมต่ำ (${nutrients.sodiumMg.toStringAsFixed(0)}mg) - ดีสำหรับควบคุมความดัน');
+    }
+
+    // วิเคราะห์เส้นใยอาหาร
+    if (nutrients.fiberG < 3) {
+      notes.add('💡 เพิ่มเส้นใยอาหาร: ผักใบเขียว ธัญพืช - ช่วยควบคุมคาร์บและลดน้ำหนัก');
+    } else {
+      notes.add('✅ เส้นใยอาหารดี (${nutrients.fiberG.toStringAsFixed(1)}g) - ช่วยอิ่มนานและลดแคลอรี่');
+    }
+
+    // สถานะรวม
+    String suitable;
+    if (carbsIsHigh && fatIsHigh && sodiumIsHigh) {
+      suitable = 'ไม่เหมาะสม - คาร์บ/ไขมัน/เกลือสูง (ต้องหลีกเลี่ยง)';
+    } else if (carbsIsHigh && fatIsHigh) {
+      suitable = 'ไม่เหมาะสม - ทั้งคาร์บและไขมันสูง (อันตรายต่อลดน้ำหนัก)';
+    } else if (sodiumIsHigh) {
+      suitable = 'ควรระวัง - เกลือสูง (กระทบความดัน)';
+    } else if (carbsIsHigh) {
+      suitable = 'ควรระวัง - คาร์บสูง (ลดเพื่อลดน้ำหนัก)';
+    } else if (fatIsHigh) {
+      suitable = 'ควรระวัง - ไขมันสูง (ลดเพื่อเพิ่มสุขภาพหัวใจ)';
+    } else if (category.categoryId == 'clear_soup') {
+      suitable = 'เหมาะสมอย่างยิ่ง - คาร์บ/ไขมัน/เกลือต่ำ (ดีต่อลดน้ำหนัก)';
+    } else if (category.categoryId == 'grilled_protein') {
+      suitable = 'เหมาะสม - โปรตีนสูง คาร์บต่ำ (ช่วยอิ่มและลดน้ำหนัก)';
+    } else {
+      suitable = 'เหมาะสมปานกลาง';
+    }
+
+    notes.add('• ${category.baseAdvice}');
+    notes.add('💡 สำคัญ: ลดคาร์บ ไขมัน เกลือ + ออกกำลังกาย + ลดน้ำหนัก');
 
     return SmartAdviceResult(
       suitable: suitable,

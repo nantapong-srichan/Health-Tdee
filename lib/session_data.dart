@@ -29,7 +29,8 @@ class SessionData with ChangeNotifier {
 
   // ข้อมูลโรคประจำตัวและคาร์โบไฮเดรต/โซเดียม
   List<String>? diseases; // ['diabetes', 'hypertension']
-  double? diabetesCarbLimit; // เป้าหมายคาร์โบไฮเดรตต่อวัน (กรัม)
+  String? diabetesType; // 'type1' หรือ 'type2' (null ถ้าไม่มีเบาหวาน)
+  double? diabetesCarbLimit; // เป้าหมายคาร์โบไฮเดรตต่อวัน (กรัม) - สำหรับ type2
   double? hypertensionSodiumLimit; // เป้าหมายโซเดียมต่อวัน (มิลลิกรัม)
 
   // ข้อมูลการรับประทานอาหาร พร้อมวันที่ (เก็บแยกตามวันที่)
@@ -146,6 +147,11 @@ class SessionData with ChangeNotifier {
 
   void updateDiabetesCarbLimit(double? value) {
     diabetesCarbLimit = value;
+    notifyListeners();
+  }
+
+  void updateDiabetesType(String? value) {
+    diabetesType = value;
     notifyListeners();
   }
 

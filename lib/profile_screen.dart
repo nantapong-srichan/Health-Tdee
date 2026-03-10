@@ -131,6 +131,22 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         setState(() {
           _userProfile = profile;
         });
+        // Update SessionData with profile information
+        final sessionData = context.read<SessionData>();
+        if (userProfile != null) {
+          if (userProfile['diseases'] != null) {
+            sessionData.updateDiseases((userProfile['diseases'] as List?)?.cast<String>());
+          }
+          if (userProfile['diabetesType'] != null) {
+            sessionData.updateDiabetesType(userProfile['diabetesType']);
+          }
+          if (userProfile['diabetesCarbLimit'] != null) {
+            sessionData.updateDiabetesCarbLimit((userProfile['diabetesCarbLimit'] as num).toDouble());
+          }
+          if (userProfile['hypertensionSodiumLimit'] != null) {
+            sessionData.updateHypertensionSodiumLimit((userProfile['hypertensionSodiumLimit'] as num).toDouble());
+          }
+        }
       }
     } catch (e) {
       // Handle error silently
@@ -1287,6 +1303,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                                     goal: _selectedGoal,
                                     dailyCalorieGoal: 2000,
                                     diseases: (userProfile['diseases'] as List?)?.cast<String>() ?? [],
+                                    diabetesType: userProfile['diabetesType'],
                                     diabetesCarbLimit: (userProfile['diabetesCarbLimit'] as num?)?.toDouble(),
                                   );
 
@@ -1303,6 +1320,19 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                                       sessionData.updateGoal(_selectedGoal);
                                       sessionData.updateGender(_selectedGender);
                                       sessionData.updateBMR(bmr);
+                                      // Update disease information
+                                      if (userProfile['diseases'] != null) {
+                                        sessionData.updateDiseases((userProfile['diseases'] as List?)?.cast<String>());
+                                      }
+                                      if (userProfile['diabetesType'] != null) {
+                                        sessionData.updateDiabetesType(userProfile['diabetesType']);
+                                      }
+                                      if (userProfile['diabetesCarbLimit'] != null) {
+                                        sessionData.updateDiabetesCarbLimit((userProfile['diabetesCarbLimit'] as num).toDouble());
+                                      }
+                                      if (userProfile['hypertensionSodiumLimit'] != null) {
+                                        sessionData.updateHypertensionSodiumLimit((userProfile['hypertensionSodiumLimit'] as num).toDouble());
+                                      }
 
                                       // Reload user profile
                                       await _loadUserProfile();
@@ -1634,6 +1664,7 @@ class _DiseasesEditModal extends StatefulWidget {
 
 class _DiseasesEditModalState extends State<_DiseasesEditModal> {
   late Map<String, bool> diseases;
+  late String? diabetesType; // 'type1' หรือ 'type2'
   late TextEditingController diabetesCarbController;
   late TextEditingController hypertensionSodiumController;
   bool isLoading = false;
@@ -1658,6 +1689,10 @@ class _DiseasesEditModalState extends State<_DiseasesEditModal> {
     };
     
     print('Initialized diseases map: $diseases');
+    
+    // Initialize diabetes type from profile
+    diabetesType = widget.userProfile['diabetesType'];
+    print('Diabetes type: $diabetesType');
     
     // Convert to double in case database returns int
     dynamic carbValue = widget.userProfile['diabetesCarbLimit'];
@@ -1712,29 +1747,90 @@ class _DiseasesEditModalState extends State<_DiseasesEditModal> {
               style: widget.theme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 20),
-            // Diabetes Checkbox
-            CheckboxListTile(
-              value: diseases['diabetes'] ?? false,
-              onChanged: isLoading
-                  ? null
-                  : (value) {
-                      setState(() {
-                        diseases['diabetes'] = value ?? false;
-                      });
-                    },
-              activeColor: const Color(0xFFFABB5A),
-              title: Text(
-                'เบาหวาน',
-                style: widget.theme.bodyMedium,
-              ),
-              controlAffinity: ListTileControlAffinity.leading,
-              contentPadding: EdgeInsets.zero,
+            // Diabetes Type Selection
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'เบาหวาน',
+                  style: widget.theme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: RadioListTile<String>(
+                        title: Text(
+                          'ไม่มี',
+                          style: widget.theme.bodySmall,
+                        ),
+                        value: '',
+                        groupValue: diseases['diabetes'] == true ? (diabetesType ?? '') : '',
+                        onChanged: isLoading
+                            ? null
+                            : (value) {
+                                setState(() {
+                                  diseases['diabetes'] = false;
+                                  diabetesType = null;
+                                  diabetesCarbController.clear();
+                                });
+                              },
+                        contentPadding: EdgeInsets.zero,
+                        activeColor: const Color(0xFFFABB5A),
+                      ),
+                    ),
+                    Expanded(
+                      child: RadioListTile<String>(
+                        title: Text(
+                          'ประเภทที่ 1',
+                          style: widget.theme.bodySmall,
+                        ),
+                        value: 'type1',
+                        groupValue: diseases['diabetes'] == true ? (diabetesType ?? '') : '',
+                        onChanged: isLoading
+                            ? null
+                            : (value) {
+                                setState(() {
+                                  diseases['diabetes'] = true;
+                                  diabetesType = 'type1';
+                                  diabetesCarbController.clear();
+                                });
+                              },
+                        contentPadding: EdgeInsets.zero,
+                        activeColor: const Color(0xFFFABB5A),
+                      ),
+                    ),
+                    Expanded(
+                      child: RadioListTile<String>(
+                        title: Text(
+                          'ประเภทที่ 2',
+                          style: widget.theme.bodySmall,
+                        ),
+                        value: 'type2',
+                        groupValue: diseases['diabetes'] == true ? (diabetesType ?? '') : '',
+                        onChanged: isLoading
+                            ? null
+                            : (value) {
+                                setState(() {
+                                  diseases['diabetes'] = true;
+                                  diabetesType = 'type2';
+                                });
+                              },
+                        contentPadding: EdgeInsets.zero,
+                        activeColor: const Color(0xFFFABB5A),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            // Carbs input if diabetes selected
-            if (diseases['diabetes'] == true) ...[
+            // Carbs input if diabetes Type 2 selected
+            if (diseases['diabetes'] == true && diabetesType == 'type2') ...[
               const SizedBox(height: 12),
               Padding(
-                padding: const EdgeInsets.only(left: 40),
+                padding: const EdgeInsets.only(left: 0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1910,6 +2006,7 @@ class _DiseasesEditModalState extends State<_DiseasesEditModal> {
                             goal: widget.userProfile['goal'] ?? 'maintain',
                             dailyCalorieGoal: dailyCalorieValue,
                             diseases: selectedDiseases,
+                            diabetesType: diabetesType,
                             diabetesCarbLimit: diabetesCarbLimit,
                             hypertensionSodiumLimit: hypertensionSodiumLimit,
                           );

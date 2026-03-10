@@ -239,6 +239,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
                   _buildNutrientRow('ไขมัน', _fat, Colors.orange),
                   const SizedBox(height: 12),
                   _buildNutrientRow('คาร์โบไฮเดรต', _carbs, Colors.blue),
+                  const SizedBox(height: 12),
+                  _buildNutrientRow('โซเดียม', _sodium, const Color(0xFF0288D1), unit: 'mg'),
                 ],
               ),
             ),
@@ -272,6 +274,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                   'protein': _protein,
                                   'carbs': _carbs,
                                   'fat': _fat,
+                                  'sodium': _sodium,
                                 },
                                 estimatedWeight: _estimatedWeight,
                                 fromResultsScreen: true,
@@ -404,7 +407,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
   }
 
   // Helper Widget สำหรับแถบสารอาหาร
-  Widget _buildNutrientRow(String name, double amount, Color color) {
+  Widget _buildNutrientRow(String name, double amount, Color color, {String unit = 'g'}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -427,7 +430,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
           ],
         ),
         Text(
-          '${amount.toStringAsFixed(1)}g',
+          '${amount.toStringAsFixed(1)}$unit',
           style: GoogleFonts.kanit(
             fontSize: 16,
             fontWeight: FontWeight.bold,
@@ -486,8 +489,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Carbs Quota Card (for diabetes)
-        if (hasDiabetes) ...[
+        // Carbs Quota Card (for Type 2 diabetes only)
+        if (hasDiabetes && sessionData.diabetesType == 'type2') ...[
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -558,6 +561,22 @@ class _ResultsScreenState extends State<ResultsScreen> {
                     ),
                   ),
                 ),
+                const SizedBox(height: 12),
+                Builder(
+                  builder: (context) {
+                    final remainingCarbs = carbTarget - (todayCarbsTotal + _carbs);
+                    return Text(
+                      remainingCarbs >= 0 
+                        ? 'หลังจากทานมื้อนี้แล้ว วันนี้คุณเหลือโควตาคาร์บอีกเพียง ${remainingCarbs.toStringAsFixed(1)}g'
+                        : 'หลังจากทานมื้อนี้แล้ว วันนี้คุณเกินโควตาคาร์บแล้ว ${(-remainingCarbs).toStringAsFixed(1)}g',
+                      style: GoogleFonts.kanit(
+                        fontSize: 13,
+                        color: remainingCarbs >= 0 ? Colors.green[700] : Colors.red[700],
+                        fontWeight: FontWeight.w600,
+                      ),
+                    );
+                  },
+                ),
               ],
             ),
           ),
@@ -603,7 +622,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        '${(todaySodiumTotal + 0).toStringAsFixed(1)} / ${sodiumTarget.toStringAsFixed(1)} mg',
+                        '${(todaySodiumTotal + _sodium).toStringAsFixed(1)} / ${sodiumTarget.toStringAsFixed(1)} mg',
                         style: GoogleFonts.kanit(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
@@ -615,7 +634,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'วันนี้: ${todaySodiumTotal.toStringAsFixed(1)}mg + อาหารนี้: 0mg (ยังไม่ได้คำนวณ)',
+                  'วันนี้: ${todaySodiumTotal.toStringAsFixed(1)}mg + อาหารนี้: ${_sodium.toStringAsFixed(1)}mg',
                   style: GoogleFonts.kanit(
                     fontSize: 13,
                     color: Colors.grey[600],
@@ -625,13 +644,29 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: LinearProgressIndicator(
-                    value: ((todaySodiumTotal) / sodiumTarget).clamp(0.0, 1.5),
+                    value: ((todaySodiumTotal + _sodium) / sodiumTarget).clamp(0.0, 1.5),
                     minHeight: 8,
                     backgroundColor: Colors.grey[200],
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      _getSodiumStatusColor(todaySodiumTotal, sodiumTarget),
+                      _getSodiumStatusColor(todaySodiumTotal + _sodium, sodiumTarget),
                     ),
                   ),
+                ),
+                const SizedBox(height: 12),
+                Builder(
+                  builder: (context) {
+                    final remainingSodium = sodiumTarget - (todaySodiumTotal + _sodium);
+                    return Text(
+                      remainingSodium >= 0 
+                        ? 'หลังจากทานมื้อนี้แล้ว วันนี้คุณเหลือโควตาโซเดียมอีกเพียง ${remainingSodium.toStringAsFixed(1)}mg'
+                        : 'หลังจากทานมื้อนี้แล้ว วันนี้คุณเกินโควตาโซเดียมแล้ว ${(-remainingSodium).toStringAsFixed(1)}mg',
+                      style: GoogleFonts.kanit(
+                        fontSize: 13,
+                        color: remainingSodium >= 0 ? Colors.green[700] : Colors.red[700],
+                        fontWeight: FontWeight.w600,
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
@@ -696,13 +731,14 @@ class _ResultsScreenState extends State<ResultsScreen> {
             _protein,
             _sodium,
             disease,
+            sessionData.diabetesType, // ส่ง diabetesType
           );
 
           if (advice == null) {
             return const SizedBox.shrink() as Widget;
           }
 
-          return _buildSmartAdviceCard(disease, advice);
+          return _buildSmartAdviceCard(disease, advice, sessionData.diabetesType);
         }).toList(),
       ],
     );
@@ -716,6 +752,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
     double protein,
     double sodium,
     String disease,
+    String? diabetesType,
   ) {
     final categoryId = FoodCategoryDatabase.getFoodCategory(foodName);
     if (categoryId == null) return null;
@@ -733,15 +770,21 @@ class _ResultsScreenState extends State<ResultsScreen> {
       categoryId: categoryId,
       nutrients: nutrients,
       userConditions: [disease],
+      diabetesType: diabetesType,
     );
 
     return results[disease];
   }
 
   // Helper method: UI card สำหรับแสดงคำแนะนำ
-  Widget _buildSmartAdviceCard(String disease, SmartAdviceResult advice) {
-    final diseaseLabel =
-        disease == 'diabetes' ? 'เบาหวาน' : 'ความดันโลหิตสูง';
+  Widget _buildSmartAdviceCard(String disease, SmartAdviceResult advice, String? diabetesType) {
+    final diseaseLabel = disease == 'diabetes'
+        ? (diabetesType == 'type1'
+            ? 'เบาหวานประเภทที่ 1'
+            : diabetesType == 'type2'
+                ? 'เบาหวานประเภทที่ 2'
+                : 'เบาหวาน')
+        : 'ความดันโลหิตสูง';
     final statusColor = _getStatusColor(advice.suitable);
     final statusIcon = _getStatusIcon(advice.suitable);
 
@@ -768,68 +811,117 @@ class _ResultsScreenState extends State<ResultsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ชื่อโรค
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFABB5A),
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: Text(
-                  diseaseLabel,
-                  style: GoogleFonts.kanit(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+              // ชื่อโรค + สถานะ (ถ้าเป็น Type 1 ให้แสดง orange box)
+              if (disease == 'diabetes' && diabetesType == 'type1')
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFABB5A).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFFFABB5A),
+                      width: 2,
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('🟠', style: const TextStyle(fontSize: 20)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              diseaseLabel,
+                              style: GoogleFonts.kanit(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFFFABB5A),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              advice.suitable,
+                              style: GoogleFonts.kanit(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFFFABB5A),
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else if (disease != 'diabetes' || diabetesType != 'type1')
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFABB5A),
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: Text(
+                    diseaseLabel,
+                    style: GoogleFonts.kanit(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
+              if (disease == 'diabetes' && diabetesType == 'type1')
+                const SizedBox(height: 12)
+              else
+                const SizedBox(height: 16),
 
-              // สถานะ (เหมาะสม/ไม่เหมาะสม/ควรระวัง)
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: statusColor, width: 1),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(statusIcon, style: const TextStyle(fontSize: 24)),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _getStatusLabel(advice.suitable),
-                            style: GoogleFonts.kanit(
-                              fontSize: 13,
-                              color: statusColor,
-                              fontWeight: FontWeight.w600,
+              // สถานะ (เหมาะสม/ไม่เหมาะสม/ควรระวัง) - แสดงเฉพาะ Type 2
+              if (disease != 'diabetes' || diabetesType != 'type1')
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: statusColor, width: 1),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(statusIcon, style: const TextStyle(fontSize: 24)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _getStatusLabel(advice.suitable),
+                              style: GoogleFonts.kanit(
+                                fontSize: 13,
+                                color: statusColor,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            advice.suitable,
-                            style: GoogleFonts.kanit(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: statusColor,
-                              height: 1.4,
+                            const SizedBox(height: 4),
+                            Text(
+                              advice.suitable,
+                              style: GoogleFonts.kanit(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: statusColor,
+                                height: 1.4,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
 
               // ข้อควรระวัง
               if (advice.warnings.isNotEmpty) ...[
@@ -977,13 +1069,15 @@ class _ResultsScreenState extends State<ResultsScreen> {
     if (suitable.contains('ไม่เหมาะสม')) return Colors.red;
     if (suitable.contains('ควรระวัง')) return Colors.orange;
     if (suitable.contains('เหมาะสมอย่างยิ่ง')) return Colors.green;
-    return Colors.blue;
+    if (suitable.contains('เหมาะสม')) return Colors.blue;
+    return Colors.grey;
   }
 
   String _getStatusIcon(String suitable) {
     if (suitable.contains('ไม่เหมาะสม')) return '🔴';
     if (suitable.contains('ควรระวัง')) return '🟠';
     if (suitable.contains('เหมาะสมอย่างยิ่ง')) return '🟢';
+    if (suitable.contains('เหมาะสม')) return '🟡';
     return '🟡';
   }
 
@@ -991,7 +1085,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
     if (suitable.contains('ไม่เหมาะสม')) return 'ไม่เหมาะสม';
     if (suitable.contains('ควรระวัง')) return 'ควรระวัง';
     if (suitable.contains('เหมาะสมอย่างยิ่ง')) return 'เหมาะสมอย่างยิ่ง';
-    return 'เหมาะสม';
+    if (suitable.contains('เหมาะสม')) return 'เหมาะสม';
+    return '';
   }
 
   // Handle meal confirmation asynchronously to prevent UI freezing
@@ -1018,6 +1113,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
               'protein': _protein,
               'carbohydrates': _carbs,
               'fat': _fat,
+              'sodium': _sodium,
             },
             estimatedWeight: _estimatedWeight,
             mealType: 'lunch',

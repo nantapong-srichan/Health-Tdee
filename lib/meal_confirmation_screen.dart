@@ -9,7 +9,7 @@ import 'services/image_upload_service.dart';
 class MealConfirmationScreen extends StatefulWidget {
   final String foodName;
   final String imagePath;
-  final Map<String, double> nutritionValues; // {calories, protein, carbs, fat}
+  final Map<String, double> nutritionValues; // {calories, protein, carbs, fat, sodium}
   final String? mealId; // For editing existing meals
   final double estimatedWeight; // Weight in grams
   final bool fromResultsScreen; // True if called from results_screen
@@ -33,11 +33,13 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
   late double _protein;
   late double _carbs;
   late double _fat;
+  late double _sodium;
   late double _estimatedWeight;
   late double _baseCalories;
   late double _baseProtein;
   late double _baseCarbs;
   late double _baseFat;
+  late double _baseSodium;
   bool _isUploading = false;
   late final ImageUploadService _imageUploadService;
 
@@ -50,11 +52,13 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
     _baseProtein = widget.nutritionValues['protein'] ?? 0;
     _baseCarbs = widget.nutritionValues['carbs'] ?? 0;
     _baseFat = widget.nutritionValues['fat'] ?? 0;
+    _baseSodium = widget.nutritionValues['sodium'] ?? 0;
     
     _calories = _baseCalories;
     _protein = _baseProtein;
     _carbs = _baseCarbs;
     _fat = _baseFat;
+    _sodium = _baseSodium;
     
     // Initialize image upload service
     _imageUploadService = ImageUploadService();
@@ -70,6 +74,7 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
       _protein = _baseProtein * ratio;
       _carbs = _baseCarbs * ratio;
       _fat = _baseFat * ratio;
+      _sodium = _baseSodium * ratio;
     });
   }
 
@@ -213,6 +218,20 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
                   150,
                   (value) {
                     setState(() => _fat = value);
+                  },
+                ),
+                const SizedBox(height: 20),
+
+                // Sodium Slider
+                _buildNutritionSlider(
+                  kanitTheme,
+                  'โซเดียม',
+                  'mg',
+                  _sodium,
+                  0,
+                  3000,
+                  (value) {
+                    setState(() => _sodium = value);
                   },
                 ),
                 const SizedBox(height: 40),
@@ -597,7 +616,7 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
         carbs: _carbs,
         fat: _fat,
         fiber: 0.0,
-        sodium: 0.0,
+        sodium: _sodium,
         estimatedWeight: _estimatedWeight,
       );
 
@@ -613,6 +632,7 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
             'protein': _protein,
             'carbs': _carbs,
             'fat': _fat,
+            'sodium': _sodium,
             'estimatedWeight': _estimatedWeight,
           });
         }
@@ -636,6 +656,7 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
           'protein': _protein,
           'carbs': _carbs,
           'fat': _fat,
+          'sodium': _sodium,
           'estimatedWeight': _estimatedWeight,
         });
       }

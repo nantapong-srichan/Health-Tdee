@@ -10,7 +10,7 @@ class MealEditScreen extends StatefulWidget {
   final String mealId; // Required - editing only
   final String foodName;
   final String imagePath;
-  final Map<String, double> nutritionValues; // {calories, protein, carbs, fat}
+  final Map<String, double> nutritionValues; // {calories, protein, carbs, fat, sodium}
   final double estimatedWeight; // Weight in grams
 
   const MealEditScreen({
@@ -31,11 +31,13 @@ class _MealEditScreenState extends State<MealEditScreen> {
   late double _protein;
   late double _carbs;
   late double _fat;
+  late double _sodium;
   late double _estimatedWeight;
   late double _baseCalories;
   late double _baseProtein;
   late double _baseCarbs;
   late double _baseFat;
+  late double _baseSodium;
   bool _isUpdating = false;
   late final ImageUploadService _imageUploadService;
 
@@ -48,11 +50,13 @@ class _MealEditScreenState extends State<MealEditScreen> {
     _baseProtein = widget.nutritionValues['protein'] ?? 0;
     _baseCarbs = widget.nutritionValues['carbs'] ?? 0;
     _baseFat = widget.nutritionValues['fat'] ?? 0;
+    _baseSodium = widget.nutritionValues['sodium'] ?? 0;
     
     _calories = _baseCalories;
     _protein = _baseProtein;
     _carbs = _baseCarbs;
     _fat = _baseFat;
+    _sodium = _baseSodium;
     
     _imageUploadService = ImageUploadService();
   }
@@ -66,6 +70,7 @@ class _MealEditScreenState extends State<MealEditScreen> {
       _protein = _baseProtein * ratio;
       _carbs = _baseCarbs * ratio;
       _fat = _baseFat * ratio;
+      _sodium = _baseSodium * ratio;
     });
   }
 
@@ -208,6 +213,20 @@ class _MealEditScreenState extends State<MealEditScreen> {
                   150,
                   (value) {
                     setState(() => _fat = value);
+                  },
+                ),
+                const SizedBox(height: 20),
+
+                // Sodium Slider
+                _buildNutritionSlider(
+                  kanitTheme,
+                  'โซเดียม',
+                  'mg',
+                  _sodium,
+                  0,
+                  3000,
+                  (value) {
+                    setState(() => _sodium = value);
                   },
                 ),
                 const SizedBox(height: 40),
@@ -594,6 +613,7 @@ class _MealEditScreenState extends State<MealEditScreen> {
             'protein': _protein,
             'carbohydrates': _carbs,
             'fat': _fat,
+            'sodium': _sodium,
           },
           estimatedWeight: _estimatedWeight,
           mealType: 'lunch',
@@ -611,6 +631,7 @@ class _MealEditScreenState extends State<MealEditScreen> {
               'protein': _protein,
               'carbs': _carbs,
               'fat': _fat,
+              'sodium': _sodium,
               'estimatedWeight': _estimatedWeight,
               'imageUrl': imageUrl,
             });
@@ -631,7 +652,7 @@ class _MealEditScreenState extends State<MealEditScreen> {
           carbs: _carbs,
           fat: _fat,
           fiber: 0.0,
-          sodium: 0.0,
+          sodium: _sodium,
           estimatedWeight: _estimatedWeight,
         );
 
@@ -646,6 +667,7 @@ class _MealEditScreenState extends State<MealEditScreen> {
               'protein': _protein,
               'carbs': _carbs,
               'fat': _fat,
+              'sodium': _sodium,
               'estimatedWeight': _estimatedWeight,
             });
           }

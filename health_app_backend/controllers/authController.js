@@ -18,7 +18,7 @@ const generateToken = (userId) => {
 // Register - Create new user
 exports.register = async (req, res, next) => {
   try {
-    const { name, email, password, gender, age, weight, height, activityLevel, goal, dailyCalorieGoal, diseases, diabetesCarbLimit } = req.body;
+    const { name, email, password, gender, age, weight, height, activityLevel, goal, dailyCalorieGoal, diseases, diabetesType, diabetesCarbLimit } = req.body;
 
     // Check if user already exists
     const userExists = await User.findOne({ email });
@@ -76,6 +76,9 @@ exports.register = async (req, res, next) => {
     // Add disease data if provided
     if (diseases && Array.isArray(diseases) && diseases.length > 0) {
       userData.diseases = diseases;
+    }
+    if (diabetesType) {
+      userData.diabetesType = diabetesType;
     }
     if (diabetesCarbLimit) {
       userData.diabetesCarbLimit = diabetesCarbLimit;
@@ -217,7 +220,7 @@ exports.getCurrentUser = async (req, res, next) => {
 // Update User Profile
 exports.updateProfile = async (req, res, next) => {
   try {
-    const { name, age, weight, height, gender, bmr, activityLevel, goal, dailyCalorieGoal, diseases, diabetesCarbLimit } =
+    const { name, age, weight, height, gender, bmr, activityLevel, goal, dailyCalorieGoal, diseases, diabetesType, diabetesCarbLimit, hypertensionSodiumLimit } =
       req.body;
 
     console.log('=== DEBUG: updateProfile ===');
@@ -246,8 +249,14 @@ exports.updateProfile = async (req, res, next) => {
       updateData.diseases = (Array.isArray(diseases) && diseases.length > 0) ? diseases : [];
       console.log('Setting updateData.diseases to:', updateData.diseases);
     }
+    if (diabetesType !== undefined) {
+      updateData.diabetesType = diabetesType || null;
+    }
     if (diabetesCarbLimit !== undefined) {
       updateData.diabetesCarbLimit = diabetesCarbLimit || null;
+    }
+    if (hypertensionSodiumLimit !== undefined) {
+      updateData.hypertensionSodiumLimit = hypertensionSodiumLimit || null;
     }
 
     console.log('UpdateData to apply:', JSON.stringify(updateData, null, 2));

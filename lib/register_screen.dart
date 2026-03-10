@@ -44,6 +44,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     'hypertension': false,
   };
   
+  // Diabetes type selection
+  String? _diabetesType; // 'type1' หรือ 'type2'
+  
   // Disease details
   final _diabetesCarbController = TextEditingController();
 
@@ -194,6 +197,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         goal: _selectedGoal,
         dailyCalorieGoal: 2000,
         diseases: selectedDiseases,
+        diabetesType: _diabetesType, // เพิ่ม diabetesType
         diabetesCarbLimit: diabetesCarbLimit,
       );
 
@@ -229,6 +233,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
             }
             if (userProfile['proteinGrams'] != null) {
               sessionData.updateProteinGrams((userProfile['proteinGrams'] as num).toDouble());
+            }
+            // Update disease information
+            if (userProfile['diseases'] != null) {
+              sessionData.updateDiseases((userProfile['diseases'] as List?)?.cast<String>());
+            }
+            if (userProfile['diabetesType'] != null) {
+              sessionData.updateDiabetesType(userProfile['diabetesType']);
+            }
+            if (userProfile['diabetesCarbLimit'] != null) {
+              sessionData.updateDiabetesCarbLimit((userProfile['diabetesCarbLimit'] as num).toDouble());
             }
           }
           
@@ -880,11 +894,80 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   List<Widget> _buildDiseaseCheckboxes() {
     return [
-      _buildDiseaseCheckbox('diabetes', 'เบาหวาน'),
-      if (_diseases['diabetes'] == true) ...[
+      // Diabetes Selection
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'เบาหวาน',
+            style: GoogleFonts.kanit(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: RadioListTile<String>(
+                  title: Text('ไม่มี', style: GoogleFonts.kanit()),
+                  value: '',
+                  groupValue: _diseases['diabetes'] == false ? '' : (_diabetesType ?? ''),
+                  onChanged: _isLoading
+                      ? null
+                      : (value) {
+                          setState(() {
+                            _diseases['diabetes'] = false;
+                            _diabetesType = null;
+                            _diabetesCarbController.clear();
+                          });
+                        },
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              Expanded(
+                child: RadioListTile<String>(
+                  title: Text('ประเภทที่ 1', style: GoogleFonts.kanit()),
+                  value: 'type1',
+                  groupValue: _diseases['diabetes'] == true ? (_diabetesType ?? '') : '',
+                  onChanged: _isLoading
+                      ? null
+                      : (value) {
+                          setState(() {
+                            _diseases['diabetes'] = true;
+                            _diabetesType = 'type1';
+                            _diabetesCarbController.clear();
+                          });
+                        },
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              Expanded(
+                child: RadioListTile<String>(
+                  title: Text('ประเภทที่ 2', style: GoogleFonts.kanit()),
+                  value: 'type2',
+                  groupValue: _diseases['diabetes'] == true ? (_diabetesType ?? '') : '',
+                  onChanged: _isLoading
+                      ? null
+                      : (value) {
+                          setState(() {
+                            _diseases['diabetes'] = true;
+                            _diabetesType = 'type2';
+                          });
+                        },
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      // Carb limit input for Type 2
+      if (_diseases['diabetes'] == true && _diabetesType == 'type2') ...[
         const SizedBox(height: 12),
         Padding(
-          padding: const EdgeInsets.only(left: 40),
+          padding: const EdgeInsets.only(left: 0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
