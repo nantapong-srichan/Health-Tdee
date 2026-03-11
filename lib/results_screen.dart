@@ -811,49 +811,24 @@ class _ResultsScreenState extends State<ResultsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ชื่อโรค + สถานะ (ถ้าเป็น Type 1 ให้แสดง orange box)
+              // ชื่อโรค (Type 1: orange badge ขึ้นต้น)
               if (disease == 'diabetes' && diabetesType == 'type1')
                 Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFABB5A).withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: const Color(0xFFFABB5A),
-                      width: 2,
-                    ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
                   ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('🟠', style: const TextStyle(fontSize: 20)),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              diseaseLabel,
-                              style: GoogleFonts.kanit(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xFFFABB5A),
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              advice.suitable,
-                              style: GoogleFonts.kanit(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xFFFABB5A),
-                                height: 1.4,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFABB5A),
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: Text(
+                    diseaseLabel,
+                    style: GoogleFonts.kanit(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                   ),
                 )
               else if (disease != 'diabetes' || diabetesType != 'type1')
@@ -876,52 +851,51 @@ class _ResultsScreenState extends State<ResultsScreen> {
                   ),
                 ),
               if (disease == 'diabetes' && diabetesType == 'type1')
-                const SizedBox(height: 12)
+                const SizedBox(height: 16)
               else
                 const SizedBox(height: 16),
 
-              // สถานะ (เหมาะสม/ไม่เหมาะสม/ควรระวัง) - แสดงเฉพาะ Type 2
-              if (disease != 'diabetes' || diabetesType != 'type1')
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: statusColor, width: 1),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(statusIcon, style: const TextStyle(fontSize: 24)),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _getStatusLabel(advice.suitable),
-                              style: GoogleFonts.kanit(
-                                fontSize: 13,
-                                color: statusColor,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              advice.suitable,
-                              style: GoogleFonts.kanit(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                color: statusColor,
-                                height: 1.4,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+              // สถานะ (Type 1 + Type 2 ทั้งคู่ใช้ statusColor ที่เปลี่ยนตามสถานะ)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: statusColor, width: 1),
                 ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(statusIcon, style: const TextStyle(fontSize: 24)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _getStatusLabel(advice.suitable),
+                            style: GoogleFonts.kanit(
+                              fontSize: 13,
+                              color: statusColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            advice.suitable,
+                            style: GoogleFonts.kanit(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: statusColor,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
               // ข้อควรระวัง
               if (advice.warnings.isNotEmpty) ...[
@@ -1067,6 +1041,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
 
   Color _getStatusColor(String suitable) {
     if (suitable.contains('ไม่เหมาะสม')) return Colors.red;
+    if (suitable.contains('ต้องนับแม่นยำ')) return Colors.orange;
+    if (suitable.contains('ระวัง')) return Colors.orange;
     if (suitable.contains('ควรระวัง')) return Colors.orange;
     if (suitable.contains('เหมาะสมอย่างยิ่ง')) return Colors.green;
     if (suitable.contains('เหมาะสม')) return Colors.blue;

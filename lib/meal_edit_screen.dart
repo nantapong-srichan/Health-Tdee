@@ -325,22 +325,51 @@ class _MealEditScreenState extends State<MealEditScreen> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFABB5A),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  '${value.toStringAsFixed(1)} $unit',
-                  style: theme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFABB5A),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '${value.toStringAsFixed(1)} $unit',
+                      style: theme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  // Edit button icon
+                  GestureDetector(
+                    onTap: () => _showEditDialog(
+                      context,
+                      label,
+                      unit,
+                      value,
+                      min,
+                      max,
+                      onChanged,
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.edit,
+                        size: 18,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -396,22 +425,51 @@ class _MealEditScreenState extends State<MealEditScreen> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFABB5A),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  '${value.toStringAsFixed(0)} $unit',
-                  style: theme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFABB5A),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '${value.toStringAsFixed(0)} $unit',
+                      style: theme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  // Edit button icon
+                  GestureDetector(
+                    onTap: () => _showEditDialog(
+                      context,
+                      label,
+                      unit,
+                      value,
+                      min,
+                      max,
+                      onChanged,
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.edit,
+                        size: 18,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -434,6 +492,100 @@ class _MealEditScreenState extends State<MealEditScreen> {
               activeColor: const Color(0xFFFABB5A),
               inactiveColor: Colors.grey[200]!,
               onChanged: onChanged,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditDialog(
+    BuildContext context,
+    String label,
+    String unit,
+    double currentValue,
+    double min,
+    double max,
+    Function(double) onChanged,
+  ) {
+    final TextEditingController controller = TextEditingController(
+      text: currentValue.toStringAsFixed(1),
+    );
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'แก้ไข $label',
+          style: GoogleFonts.kanit(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: controller,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                hintText: 'กรอกค่า',
+                suffixText: unit,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
+              ),
+              autofocus: true,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'เกณฑ์: $min - $max $unit',
+              style: GoogleFonts.kanit(
+                fontSize: 12,
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'ยกเลิก',
+              style: GoogleFonts.kanit(
+                color: Colors.grey,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFABB5A),
+            ),
+            onPressed: () {
+              final newValue = double.tryParse(controller.text);
+              if (newValue != null && newValue >= min && newValue <= max) {
+                onChanged(newValue);
+                Navigator.pop(context);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'กรุณากรอกค่าระหว่าง $min - $max',
+                      style: GoogleFonts.kanit(),
+                    ),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            child: Text(
+              'ตกลง',
+              style: GoogleFonts.kanit(
+                color: Colors.white,
+              ),
             ),
           ),
         ],

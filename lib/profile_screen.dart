@@ -388,7 +388,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true,
+      isScrollControlled: false,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -508,7 +508,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
 
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true,
+      isScrollControlled: false,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -762,7 +762,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
 
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true,
+      isScrollControlled: false,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -1063,6 +1063,9 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.75,
       ),
       builder: (context) {
         return StatefulBuilder(
@@ -1628,7 +1631,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
 
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true,
+      isScrollControlled: false,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),

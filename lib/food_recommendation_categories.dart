@@ -336,11 +336,11 @@ class SmartAdviceGenerator {
     // สถานะรวม
     String suitable;
     if (carbsIsHigh && (proteinIsLow || fatIsHigh)) {
-      suitable = 'ระวัง - คาร์บสูง + อัตราส่วนคาร์บต่อโปรตีนไม่ดี';
+      suitable = 'ควรระวัง - คาร์บสูง + อัตราส่วนคาร์บต่อโปรตีนไม่ดี';
     } else if (carbsIsHigh) {
-      suitable = 'ต้องนับแม่นยำเพื่อปรับปริมาณยา (คาร์บสูง)';
+      suitable = 'ควรระวัง - คาร์บสูง (ต้องนับแม่นยำเพื่อปรับปริมาณยา)';
     } else if (fatIsHigh) {
-      suitable = 'ควรหลีกเลี่ยง - ไขมันสูง';
+      suitable = 'ควรระวัง - ไขมันสูง';
     } else if (proteinIsLow) {
       suitable = 'ควรระวัง - เพิ่มโปรตีน';
     } else if (category.categoryId == 'clear_soup') {

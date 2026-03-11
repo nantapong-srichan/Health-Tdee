@@ -40,11 +40,11 @@ class NutritionDatabase {
   static const Map<String, NutritionInfo> database = {
     'แกงเขียวหวานไก่': NutritionInfo(
       foodName: 'แกงเขียวหวานไก่',
-      calories: 240,
-      protein: 13.2, 
-      fat: 16.5,    
-      carbs: 9.6,
-      sodium: 900,
+      calories: 140,
+      protein: 5.1, 
+      fat: 11.8,    
+      carbs: 5.4,
+      sodium: 450,
       description: 'แกงเขียวหวานไก่ อาหารไทยรสจัดจ้าน สารอาหารต่อ 100 กรัม ตามมาตรฐานกรมอนามัย',
     ),
     'แกงจืดมะระยัดไส้หมูสับ': NutritionInfo(
