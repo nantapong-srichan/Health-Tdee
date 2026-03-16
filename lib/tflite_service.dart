@@ -25,9 +25,27 @@ class TFLiteService {
       _labels = labelsData
           .split('\n')
           .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
+          .where((line) {
+            // Remove only the FINAL empty string from split
+            // Keep empty strings that are part of the training data (marked with "")
+            return true; // Keep all for now, we'll filter later
+          })
           .toList();
+      
+      // Remove only the FINAL empty string if it exists (artifact of split)
+      if (_labels!.isNotEmpty && _labels!.last.isEmpty) {
+        // Only remove if it's truly the last artifact, not a training label
+        _labels!.removeLast();
+      }
+      
       print('Labels loaded: ${_labels!.length} food types');
+      
+      // Debug: Show last few labels
+      print('===== DEBUG: Last 5 labels =====');
+      int startIdx = (_labels!.length - 5).clamp(0, _labels!.length);
+      for (int i = startIdx; i < _labels!.length; i++) {
+        print('Label[$i]: "${_labels![i]}" (length: ${_labels![i].length})');
+      }
 
       // Load food classifier model
       print('Loading food classifier: best_float16.tflite...');
@@ -36,7 +54,7 @@ class TFLiteService {
       // Get shapes from food classifier
       final inTensor = _foodClassifier!.getInputTensor(0);
       final outTensor = _foodClassifier!.getOutputTensor(0);
-      _inShape = inTensor.shape;    // Should be [1, 640, 640, 3]
+      _inShape = inTensor.shape;    // Should be [1, 416, 416, 3]
       _outShape = outTensor.shape;  // Should be [1, 7, 8400]
       
       print('Food classifier loaded successfully');
@@ -75,11 +93,11 @@ class TFLiteService {
     }
   }
 
-  // Preprocess image for YOLO (640x640)
+  // Preprocess image for YOLO (416x416)
   List<List<List<List<double>>>> _preprocessImageForYOLO(img.Image imageData) {
-    // 1. Image already decoded, resize to 640x640 for YOLO
-    final int height = 640;
-    final int width = 640;
+    // 1. Image already decoded, resize to 416x416 for YOLO
+    final int height = 416;
+    final int width = 416;
     
     final img.Image resized = img.copyResize(
       imageData,
@@ -88,7 +106,7 @@ class TFLiteService {
       interpolation: img.Interpolation.nearest
     );
     
-    // 3. Normalize to [0,1] range and reshape to [1, 640, 640, 3]
+    // 3. Normalize to [0,1] range and reshape to [1, 416, 416, 3]
     var shapedInput = List.generate(
       1, // Batch size
       (_) => List.generate(
@@ -304,8 +322,8 @@ class TFLiteService {
       final int originalImageWidth = decodedImage.width;
       final int originalImageHeight = decodedImage.height;
 
-      // 2. Preprocess the decoded image for YOLO (640x640)
-      print('Preprocessing image for YOLO (640x640)...');
+      // 2. Preprocess the decoded image for YOLO (416x416)
+      print('Preprocessing image for YOLO (416x416)...');
       final shapedInput = _preprocessImageForYOLO(decodedImage);
 
       // 3. Prepare the output tensor structure correctly for Dart
@@ -320,8 +338,17 @@ class TFLiteService {
 
       // 4. Run YOLO inference
       print('Running YOLO interpreter...');
-      _foodClassifier!.run(shapedInput, outputArray);
-      print('YOLO inference completed.');
+      print('DEBUG: Input shape: [1, 416, 416, 3], shaped input rank: ${shapedInput.length}');
+      print('DEBUG: Model output shape from metadata: $_outShape');
+      print('DEBUG: Labels count: ${_labels!.length}');
+      
+      try {
+        _foodClassifier!.run(shapedInput, outputArray);
+        print('YOLO inference completed.');
+      } catch (e) {
+        print('ERROR during inference: $e');
+        rethrow;
+      }
       
       // 5. Post-process the YOLOv8 Output
       if (_labels!.isEmpty) {
@@ -331,7 +358,10 @@ class TFLiteService {
       final int numClasses = _labels!.length;
       final int numBoxes = _outShape[2]; // 8400
       
-      final int numProperties = _outShape[1]; // 7
+      final int numProperties = _outShape[1]; // 119
+      print('DEBUG: Checking output structure - numProperties: $numProperties, numClasses: $numClasses');
+      print('DEBUG: Expected: 4 + $numClasses = ${4 + numClasses}, Got: $numProperties');
+      
       if (numProperties != 4 + numClasses) {
         print('Output shape mismatch! Expected 4 + $numClasses properties, but got $numProperties');
         return null;
