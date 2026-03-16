@@ -1,5 +1,11 @@
 // ข้อมูลสารอาหารต่อ 100 กรัม
 // ผลลัพธ์การคำนวณสารอาหาร
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'dart:async';
+
+const String API_BASE_URL = 'http://10.0.2.2:5000/api';
+
 class CalculationResult {
   final double calories;
   final double protein;
@@ -23,7 +29,6 @@ class NutritionInfo {
   final double fat;         // g
   final double carbs;       // g
   final double sodium;      // mg
-  final String description; // คำอธิบายเพิ่มเติม
 
   const NutritionInfo({
     required this.foodName,
@@ -32,180 +37,124 @@ class NutritionInfo {
     required this.fat,
     required this.carbs,
     required this.sodium,
-    required this.description,
   });
+
+  // Factory constructor for JSON parsing
+  factory NutritionInfo.fromJson(Map<String, dynamic> json) {
+    return NutritionInfo(
+      foodName: json['foodName'] ?? '',
+      calories: (json['nutrition']['calories'] as num).toDouble(),
+      protein: (json['nutrition']['protein'] as num).toDouble(),
+      fat: (json['nutrition']['fat'] as num).toDouble(),
+      carbs: (json['nutrition']['carbohydrates'] as num).toDouble(),
+      sodium: (json['nutrition']['sodium'] as num).toDouble(),
+    );
+  }
 }
 
 class NutritionDatabase {
-  static const Map<String, NutritionInfo> database = {
-    'แกงเขียวหวานไก่': NutritionInfo(
-      foodName: 'แกงเขียวหวานไก่',
-      calories: 140,
-      protein: 5.1, 
-      fat: 11.8,    
-      carbs: 5.4,
-      sodium: 450,
-      description: 'แกงเขียวหวานไก่ อาหารไทยรสจัดจ้าน สารอาหารต่อ 100 กรัม ตามมาตรฐานกรมอนามัย',
-    ),
-    'แกงจืดมะระยัดไส้หมูสับ': NutritionInfo(
-      foodName: 'แกงจืดมะระยัดไส้หมูสับ',
-      calories: 85,
-      protein: 7.4,  
-      fat: 4.8,
-      carbs: 3.1,
-      sodium: 320,
-      description: 'แกงจืดมะระยัดไส้หมูสับ ให้คุณค่าทางโภชนาการสูง พลังงานต่ำต่อหน่วยน้ำหนัก',
-    ),
-    'ไข่ดาว': NutritionInfo(
-      foodName: 'ไข่ดาว',
-      calories: 327,
-      protein: 12.8,
-      fat: 15.7,
-      carbs: 0.8,
-      sodium: 140,
-      description: 'ไข่ดาวทอดน้ำมัน ข้อมูลต่อ 100 กรัม (ประมาณ 2 ฟองเบอร์ 2)',
-    ),
-    'ก๋วยจั๊บ': NutritionInfo(
-      foodName: 'ก๋วยจั๊บ',
-      calories: 115,
-      protein: 4.8,
-      fat: 3.2,
-      carbs: 16.8,
-      sodium: 482,
-      description: 'ก๋วยจั๊บน้ำข้น สารอาหารเฉลี่ยรวมเส้น เครื่องใน และน้ำซุป',
-    ),
-    'กุ้งเผา': NutritionInfo(
-      foodName: 'กุ้งเผา',
-      calories: 92,
-      protein: 20.4,
-      fat: 1.2,      
-      carbs: 0.0,
-      sodium: 110,
-      description: 'กุ้งก้ามกรามเผาสด โปรตีนสูง ไขมันต่ำ (เฉพาะส่วนเนื้อ)',
-    ),
-    'กุ้งอบวุ้นเส้น': NutritionInfo(
-      foodName: 'กุ้งอบวุ้นเส้น',
-      calories: 165,
-      protein: 9.2, 
-      fat: 5.4,      
-      carbs: 20.0,
-      sodium: 450,
-      description: 'กุ้งอบวุ้นเส้น สารอาหารเฉลี่ยต่อ 100 กรัม (รวมเครื่องปรุง)',
-    ),
-    'แกงจืด': NutritionInfo(
-      foodName: 'แกงจืด',
-      calories: 45,
-      protein: 3.8,
-      fat: 2.5,
-      carbs: 1.8,
-      sodium: 280,
-      description: 'แกงจืดผักรวม สารอาหารเฉลี่ยต่อ 100 กรัม (เน้นน้ำซุป)',
-    ),
-    'ไก่ทอด': NutritionInfo(
-      foodName: 'ไก่ทอด',
-      calories: 275,
-      protein: 18.5, 
-      fat: 19.0,     
-      carbs: 7.5,
-      sodium: 320,     
-      description: 'ไก่ทอดกรอบ ข้อมูลรวมแป้งชุบทอดและน้ำมันที่ดูดซับ',
-    ),
-    'ไก่ย่าง': NutritionInfo(
-      foodName: 'ไก่ย่าง',
-      calories: 175,
-      protein: 22.0, 
-      fat: 8.5,      
-      carbs: 1.2,
-      sodium: 75,
-      description: 'ไก่ย่าง สารอาหารหลักจากเนื้อและหนังไก่',
-    ),
-    'ขนมจีนน้ำยาไก่': NutritionInfo(
-      foodName: 'ขนมจีนน้ำยาไก่',
-      calories: 105,
-      protein: 4.2,
-      fat: 4.5,
-      carbs: 12.0,
-      sodium: 410,   
-      description: 'ขนมจีนน้ำยากะทิ สารอาหารเฉลี่ยต่อ 100 กรัม',
-    ),
-    'ข้าวคลุกกะปิ': NutritionInfo(
-      foodName: 'ข้าวคลุกกะปิ',
-      calories: 210,
-      protein: 6.8,
-      fat: 7.2,
-      carbs: 29.5,
-      sodium: 550,   
-      description: 'ข้าวคลุกกะปิ รวมเครื่องเคียงตามสัดส่วนมาตรฐาน',
-    ),
-    'ข้าวหมูทอดกระเทียม': NutritionInfo(
-      foodName: 'ข้าวหมูทอดกระเทียม',
-      calories: 265,
-      protein: 10.5,
-      fat: 11.0,
-      carbs: 31.0,
-      sodium: 460,   
-      description: 'ข้าวหมูทอดกระเทียม สารอาหารเฉลี่ยต่อ 100 กรัม',
-    ),
-};
-
-      // ข้อมูลสารอาหารสำหรับปริมาณ 100 กรัม
-    static NutritionInfo? getNutritionInfo(String foodName) {
-      // ทำให้การค้นหาไม่ต้องตรงตัวอักษรทั้งหมด
-      final normalizedSearch = foodName.trim().toLowerCase();
+  // ค้นหาข้อมูลสารอาหารจาก API
+  static Future<NutritionInfo?> getNutritionInfo(String foodName) async {
+    try {
+      print('DEBUG: Fetching nutrition for: $foodName');
+      // ลองค้นหาด้วยชื่อเมนูที่แน่นอนก่อน (encode URL properly)
+      final encodedName = Uri.encodeComponent(foodName);
+      print('DEBUG: Encoded name: $encodedName');
+      final url = '$API_BASE_URL/foods/$encodedName';
+      print('DEBUG: Full URL: $url');
       
-      // หาเมนูที่ใกล้เคียงที่สุด
-      String? closestMatch;
-      int maxSimilarity = 0;
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => throw TimeoutException('API timeout'),
+      );
 
-      for (var key in database.keys) {
-        final normalizedKey = key.toLowerCase();
-        int similarity = _calculateSimilarity(normalizedSearch, normalizedKey);
-        if (similarity > maxSimilarity) {
-          maxSimilarity = similarity;
-          closestMatch = key;
+      print('DEBUG: Response status code: ${response.statusCode}');
+      print('DEBUG: Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print('DEBUG: Decoded data: $data');
+        if (data['success'] == true) {
+          final info = NutritionInfo.fromJson(data['data']);
+          print('DEBUG: Successfully parsed nutrition info: ${info.foodName}');
+          return info;
         }
       }
 
-      // ถ้าความใกล้เคียงมากพอ (มากกว่า 50%) ให้คืนค่าข้อมูลสารอาหาร
-      if (closestMatch != null && maxSimilarity > 50) {
-        return database[closestMatch];
-      }
+      // ถ้าไม่พบ ลองค้นหาแบบ fuzzy matching จากรายการอาหารทั้งหมด
+      print('DEBUG: Exact match failed, trying fuzzy match...');
+      return _searchFuzzyMatch(foodName);
+    } catch (e) {
+      print('ERROR fetching nutrition info: $e');
       return null;
     }
+  }
 
-    // คำนวณสารอาหารตามน้ำหนักจริง
-    static CalculationResult calculateNutrition(String foodName, double weightInGrams) {
-      // หาข้อมูลสารอาหารพื้นฐาน (ต่อ 100 กรัม)
-      final info = getNutritionInfo(foodName);
-      
-      // ถ้าไม่พบข้อมูล ให้คืนค่าเป็น 0
-      if (info == null) {
-        return CalculationResult(
-          calories: 0,
-          protein: 0,
-          fat: 0,
-          carbs: 0,
-          sodium: 0,
-        );
-      }
-
-      // คำนวณตามสัดส่วนน้ำหนัก
-      final ratio = weightInGrams / 100.0;
-      return CalculationResult(
-        calories: info.calories * ratio,
-        protein: info.protein * ratio,
-        fat: info.fat * ratio,
-        carbs: info.carbs * ratio,
-        sodium: info.sodium * ratio,
+  // ค้นหาแบบ fuzzy matching จากทั้งหมด
+  static Future<NutritionInfo?> _searchFuzzyMatch(String foodName) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$API_BASE_URL/foods'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => throw TimeoutException('API timeout'),
       );
-    }
 
-  // คำนวณความคล้ายคลึงระหว่างข้อความ (อย่างง่าย)
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true && data['data'] is List) {
+          final foods = data['data'] as List;
+          
+          // ค้นหาเมนูที่ใกล้เคียงที่สุด
+          NutritionInfo? closestMatch;
+          int maxSimilarity = 0;
+          final normalizedSearch = foodName.trim().toLowerCase();
+
+          for (var foodData in foods) {
+            final foodNameKey = (foodData['foodName'] ?? '').toString().toLowerCase();
+            int similarity = _calculateSimilarity(normalizedSearch, foodNameKey);
+            
+            if (similarity > maxSimilarity) {
+              maxSimilarity = similarity;
+              closestMatch = NutritionInfo.fromJson(foodData);
+            }
+          }
+
+          // คืนค่าถ้าความใกล้เคียงมากกว่า 50%
+          if (closestMatch != null && maxSimilarity > 50) {
+            return closestMatch;
+          }
+        }
+      }
+      return null;
+    } catch (e) {
+      print('Error searching foods: $e');
+      return null;
+    }
+  }
+
+  // คำนวณสารอาหารตามน้ำหนักจริง
+  static CalculationResult calculateNutrition(NutritionInfo info, double weightInGrams) {
+    // คำนวณตามสัดส่วนน้ำหนัก
+    final ratio = weightInGrams / 100.0;
+    return CalculationResult(
+      calories: info.calories * ratio,
+      protein: info.protein * ratio,
+      fat: info.fat * ratio,
+      carbs: info.carbs * ratio,
+      sodium: info.sodium * ratio,
+    );
+  }
+
+  // คำนวณความคล้ายคลึงระหว่างข้อความ
   static int _calculateSimilarity(String s1, String s2) {
     if (s1.isEmpty || s2.isEmpty) return 0;
     if (s1 == s2) return 100;
     
-    // นับจำนวนตัวอักษรที่เหมือนกัน
     int matches = 0;
     int length = s1.length < s2.length ? s1.length : s2.length;
     

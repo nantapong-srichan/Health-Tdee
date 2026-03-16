@@ -10,6 +10,7 @@ const errorHandler = require('./middleware/errorHandler');
 const authRoutes = require('./routes/auth');
 const mealRoutes = require('./routes/meals');
 const statsRoutes = require('./routes/stats');
+const foodRoutes = require('./routes/foods');
 
 // Initialize Express app
 const app = express();
@@ -28,6 +29,7 @@ app.use(morgan('combined')); // Logging
 app.use('/api/auth', authRoutes);
 app.use('/api/meals', mealRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/foods', foodRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

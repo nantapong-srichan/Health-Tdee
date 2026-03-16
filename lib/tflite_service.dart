@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
@@ -369,17 +370,18 @@ class TFLiteService {
 
       var maxScore = -double.infinity;
       var maxIdx = -1;
-      const double CONFIDENCE_THRESHOLD = 0.45; // Lowered threshold to 45%
+      const double CONFIDENCE_THRESHOLD = 0.25; // Lowered threshold to 25% for better detection
 
       // Loop through all 8400 boxes to find the one with the highest confidence
       for (int i = 0; i < numBoxes; i++) {
         // For each box, check the confidence score of each class
         for (int c = 0; c < numClasses; c++) {
-          // The output structure is [1, 7, 8400].
-          // We access it as: outputArray[batch_index][property_index][box_index]
+          // The output structure is [1, 119, 8400].
           // The first 4 properties (0-3) are box coordinates (x,y,w,h).
-          // The next properties (4 onwards) are class confidences.
-          final score = outputArray[0][4 + c][i];
+          // The next properties (4 onwards) are class confidences (raw logits).
+          final rawScore = outputArray[0][4 + c][i];
+          // Apply sigmoid to convert raw logits to probabilities [0, 1]
+          final score = _sigmoid(rawScore);
 
           // If this score is the highest we've seen so far, update it
           if (score > maxScore) {
@@ -390,11 +392,12 @@ class TFLiteService {
       }
       
       // Debug: Print all class scores for the top detection
-      print('=== All class scores ===');
+      print('=== All class scores (after sigmoid) ===');
       for (int c = 0; c < numClasses; c++) {
         var classScores = <double>[];
         for (int i = 0; i < numBoxes; i++) {
-          classScores.add(outputArray[0][4 + c][i]);
+          final rawScore = outputArray[0][4 + c][i];
+          classScores.add(_sigmoid(rawScore));
         }
         final maxScore = classScores.reduce((a, b) => a > b ? a : b);
         print('${_labels![c]}: $maxScore');
@@ -568,5 +571,10 @@ class TFLiteService {
       print('[TFLiteService.predictFoodWeight] Stack trace: $s');
       return 300.0; // Return default on error
     }
+  }
+
+  // Sigmoid function to convert raw logits to probabilities [0, 1]
+  double _sigmoid(double x) {
+    return 1.0 / (1.0 + math.exp(-x));
   }
 }

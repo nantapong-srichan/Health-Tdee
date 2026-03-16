@@ -1,7 +1,9 @@
 // lib/results_screen.dart
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'meal_confirmation_screen.dart';
@@ -34,29 +36,205 @@ class _ResultsScreenState extends State<ResultsScreen> {
   late double _fat;
   late double _sodium;
   late double _estimatedWeight;
-  String?
-  _uploadedImageUrl; // Store image URL if uploaded from meal_confirmation_screen
+  late String _currentFoodName; // ชื่ออาหารที่อาจเปลี่ยนแปลง
+  bool _isLoading = true;
+  String? _uploadedImageUrl;
 
   @override
   void initState() {
     super.initState();
     _estimatedWeight = widget.result.estimatedWeight;
+    _currentFoodName = widget.result.foodName; // เก็บชื่อเริ่มต้น
     _updateNutrition(_estimatedWeight);
   }
 
-  void _updateNutrition(double weight) {
-    final nutritionCalc = NutritionDatabase.calculateNutrition(
-      widget.result.foodName,
-      weight,
+  Future<void> _updateNutrition(double weight) async {
+    try {
+      // ดึงข้อมูลสารอาหารจาก API ใช้ชื่อปัจจุบัน
+      final info = await NutritionDatabase.getNutritionInfo(
+        _currentFoodName,
+      );
+
+      if (info != null) {
+        // คำนวณสารอาหารตามน้ำหนัก
+        final nutritionCalc = NutritionDatabase.calculateNutrition(info, weight);
+        
+        setState(() {
+          _estimatedWeight = weight;
+          _calories = nutritionCalc.calories;
+          _protein = nutritionCalc.protein;
+          _carbs = nutritionCalc.carbs;
+          _fat = nutritionCalc.fat;
+          _sodium = nutritionCalc.sodium;
+          _isLoading = false;
+        });
+      } else {
+        // ไม่พบข้อมูล
+        setState(() {
+          _isLoading = false;
+          _calories = 0;
+          _protein = 0;
+          _carbs = 0;
+          _fat = 0;
+          _sodium = 0;
+        });
+      }
+    } catch (e) {
+      print('Error updating nutrition: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  // ค้นหาเมนูอาหารจาก API ตามคำค้นหา
+  Future<List<String>> _searchFoodNames(String query) async {
+    if (query.isEmpty) return [];
+    
+    try {
+      final response = await http.get(
+        Uri.parse('http://10.0.2.2:5000/api/foods'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true && data['data'] is List) {
+          final foods = data['data'] as List;
+          final queryLower = query.toLowerCase();
+          
+          // ค้นหาเมนูที่มีชื่อเริ่มต้นหรือมีคำค้นหาอยู่
+          final results = <String>[];
+          for (var food in foods) {
+            final foodName = (food['foodName'] ?? '').toString();
+            if (foodName.toLowerCase().contains(queryLower)) {
+              results.add(foodName);
+            }
+          }
+          return results;
+        }
+      }
+      return [];
+    } catch (e) {
+      print('Error searching foods: $e');
+      return [];
+    }
+  }
+
+  // แสดง dialog สำหรับแก้ไขชื่ออาหาร
+  void _showFoodSearchDialog() {
+    final searchController = TextEditingController(text: _currentFoodName);
+    final searchResults = <String>[];
+    
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'แก้ไขชื่ออาหาร',
+                      style: GoogleFonts.kanit(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // ช่องค้นหา
+                    TextField(
+                      controller: searchController,
+                      decoration: InputDecoration(
+                        hintText: 'พิมพ์ชื่ออาหาร...',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        prefixIcon: const Icon(Icons.search),
+                      ),
+                      onChanged: (value) async {
+                        final results = await _searchFoodNames(value);
+                        setState(() {
+                          searchResults.clear();
+                          searchResults.addAll(results);
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    // รายการผลลัพธ์
+                    if (searchResults.isNotEmpty)
+                      Container(
+                        constraints: const BoxConstraints(maxHeight: 250),
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: searchResults.length,
+                          itemBuilder: (context, index) {
+                            final foodName = searchResults[index];
+                            return ListTile(
+                              title: Text(
+                                foodName,
+                                style: GoogleFonts.kanit(),
+                              ),
+                              onTap: () {
+                                Navigator.pop(context);
+                                // อัปเดตชื่ออาหารและดึงข้อมูลใหม่
+                                this.setState(() {
+                                  _currentFoodName = foodName;
+                                });
+                                _updateNutrition(_estimatedWeight);
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+                    // ปุ่มยืนยัน/ยกเลิก
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.grey[400],
+                          ),
+                          child: Text(
+                            'ยกเลิก',
+                            style: GoogleFonts.kanit(),
+                          ),
+                        ),
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            // ใช้ชื่อที่พิมพ์แม้ไม่มีในรายการ
+                            this.setState(() {
+                              _currentFoodName = searchController.text;
+                            });
+                            _updateNutrition(_estimatedWeight);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFFABB5A),
+                          ),
+                          child: Text(
+                            'ตกลง',
+                            style: GoogleFonts.kanit(color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
-    setState(() {
-      _estimatedWeight = weight;
-      _calories = nutritionCalc?.calories ?? 0.0;
-      _protein = nutritionCalc?.protein ?? 0.0;
-      _carbs = nutritionCalc?.carbs ?? 0.0;
-      _fat = nutritionCalc?.fat ?? 0.0;
-      _sodium = nutritionCalc?.sodium ?? 0.0;
-    });
   }
 
   @override
@@ -71,11 +249,36 @@ class _ResultsScreenState extends State<ResultsScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+      body: _isLoading
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(
+                    width: 60,
+                    height: 60,
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Color(0xFFFABB5A),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'กำลังดึงข้อมูลสารอาหาร...',
+                    style: GoogleFonts.kanit(
+                      fontSize: 16,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
             // 1. รูปภาพ
             ClipRRect(
               borderRadius: BorderRadius.circular(20),
@@ -116,14 +319,27 @@ class _ResultsScreenState extends State<ResultsScreen> {
               ),
               child: Column(
                 children: [
-                  Text(
-                    widget.result.foodName,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.kanit(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF2C2C2C),
-                    ),
+                  // ชื่ออาหารพร้อมปุ่มแก้ไข
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _currentFoodName,
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.kanit(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF2C2C2C),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Color(0xFFFABB5A)),
+                        onPressed: _showFoodSearchDialog,
+                        tooltip: 'แก้ไขชื่ออาหาร',
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   Container(
@@ -267,7 +483,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                           .push<Map<String, dynamic>>(
                             MaterialPageRoute(
                               builder: (context) => MealConfirmationScreen(
-                                foodName: widget.result.foodName,
+                                foodName: _currentFoodName,
                                 imagePath: widget.imageFile.path,
                                 nutritionValues: {
                                   'calories': _calories,
@@ -354,7 +570,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
             const SizedBox(height: 16),
           ],
         ),
-      ),
+            ),
     );
   }
 
@@ -725,7 +941,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
         // แสดงคำแนะนำแบบอัจฉริยะสำหรับแต่ละโรค
         ...userDiseases.map((disease) {
           final advice = _getSmartAdvice(
-            widget.result.foodName,
+            _currentFoodName,
             _carbs,
             _fat,
             _protein,
@@ -1083,7 +1299,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
         try {
           finalImageUrl = await imageUploadService.uploadFoodImageWithMealData(
             imageFile: File(widget.imageFile.path),
-            foodName: widget.result.foodName,
+            foodName: _currentFoodName,
             nutrition: {
               'calories': _calories,
               'protein': _protein,
@@ -1169,7 +1385,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
           'DEBUG RESULTS: _handleConfirmMeal - Saving meal with imageUrl: $finalImageUrl',
         );
         response = await mealService.saveMeal(
-          foodName: widget.result.foodName,
+          foodName: _currentFoodName,
           calories: _calories.toInt(),
           protein: _protein,
           carbs: _carbs,
@@ -1255,7 +1471,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
         // Show success notification
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('บันทึก${widget.result.foodName}สำเร็จ'),
+            content: Text('บันทึก${_currentFoodName}สำเร็จ'),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 2),
           ),
