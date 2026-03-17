@@ -1,0 +1,974 @@
+[
+  {
+    "id": "0",
+    "name_en": "Green Curry with Chicken",
+    "name_th": "แกงเขียวหวานไก่",
+    "carbs": 3.03,
+    "sodium": 420.0,
+    "protein": 7.9,
+    "fat": 6.05
+  },
+  {
+    "id": "1",
+    "name_en": "Stuffed Bitter Melon Soup with Minced Pork",
+    "name_th": "แกงจืดมะระยัดไส้หมูสับ",
+    "carbs": 1.0,
+    "sodium": 380.0,
+    "protein": 4.8,
+    "fat": 3.2
+  },
+  {
+    "id": "2",
+    "name_en": "Fried Egg",
+    "name_th": "ไข่ดาว",
+    "carbs": 2.46,
+    "sodium": 70.0,
+    "protein": 12.75,
+    "fat": 22.76
+  },
+  {
+    "id": "3",
+    "name_en": "Guay Jub",
+    "name_th": "ก๋วยจั๊บ",
+    "carbs": 8.17,
+    "sodium": 360.0,
+    "protein": 4.55,
+    "fat": 3.67
+  },
+  {
+    "id": "4",
+    "name_en": "Grilled River Prawns",
+    "name_th": "กุ้งเผา",
+    "carbs": 0.4,
+    "sodium": 180.0,
+    "protein": 20.1,
+    "fat": 5.8
+  },
+  {
+    "id": "5",
+    "name_en": "Baked Prawns with Glass Noodles",
+    "name_th": "กุ้งอบวุ้นเส้น",
+    "carbs": 16.5,
+    "sodium": 580.0,
+    "protein": 9.4,
+    "fat": 5.6
+  },
+  {
+    "id": "6",
+    "name_en": "Clear Soup",
+    "name_th": "แกงจืด",
+    "carbs": 1.6,
+    "sodium": 350.0,
+    "protein": 3.5,
+    "fat": 3.1
+  },
+  {
+    "id": "7",
+    "name_en": "Fried Chicken",
+    "name_th": "ไก่ทอด",
+    "carbs": 7.0,
+    "sodium": 450.0,
+    "protein": 28.43,
+    "fat": 21.0
+  },
+  {
+    "id": "8",
+    "name_en": "Grilled Chicken",
+    "name_th": "ไก่ย่าง",
+    "carbs": 1.2,
+    "sodium": 520.0,
+    "protein": 22.5,
+    "fat": 12.8
+  },
+  {
+    "id": "9",
+    "name_en": "Rice Noodles with Chicken Curry Sauce",
+    "name_th": "ขนมจีนน้ำยาไก่",
+    "carbs": 8.8,
+    "sodium": 320.0,
+    "protein": 4.2,
+    "fat": 4.8
+  },
+  {
+    "id": "10",
+    "name_en": "Shrimp Paste Fried Rice",
+    "name_th": "ข้าวคลุกกะปิ",
+    "carbs": 25.21,
+    "sodium": 614.0,
+    "protein": 6.61,
+    "fat": 7.11
+  },
+  {
+    "id": "11",
+    "name_en": "Garlic Fried Pork with Rice",
+    "name_th": "ข้าวหมูทอดกระเทียม",
+    "carbs": 26.2,
+    "sodium": 322.0,
+    "protein": 6.8,
+    "fat": 5.8
+  },
+  {
+    "id": "12",
+    "name_en": "Khao Phat Amerikan",
+    "name_th": "ข้าวผัดอเมริกัน",
+    "carbs": 20.0,
+    "sodium": 317.0,
+    "protein": 6.3,
+    "fat": 7.4
+  },
+  {
+    "id": "13",
+    "name_en": "Khao Na Kai",
+    "name_th": "ข้าวหน้าไก่",
+    "carbs": 19.8,
+    "sodium": 335.0,
+    "protein": 4.8,
+    "fat": 3.6
+  },
+  {
+    "id": "14",
+    "name_en": "Po Pia Thot",
+    "name_th": "ปอเปี๊ยะทอด",
+    "carbs": 33.6,
+    "sodium": 443.0,
+    "protein": 4.8,
+    "fat": 14.5
+  },
+  {
+    "id": "15",
+    "name_en": "Phat See Ew",
+    "name_th": "ผัดซีอิ๊ว",
+    "carbs": 19.0,
+    "sodium": 385.0,
+    "protein": 5.6,
+    "fat": 8.4
+  },
+  {
+    "id": "16",
+    "name_en": "Krapo Pla Nam Dang",
+    "name_th": "กระเพาะปลาน้ำแดง",
+    "carbs": 5.3,
+    "sodium": 425.0,
+    "protein": 5.1,
+    "fat": 3.4
+  },
+  {
+    "id": "17",
+    "name_en": "Sai Krok Isan",
+    "name_th": "ไส้กรอกอีสาน",
+    "carbs": 6.3,
+    "sodium": 785.0,
+    "protein": 13.6,
+    "fat": 22.5
+  },
+  {
+    "id": "18",
+    "name_en": "Lap Kua",
+    "name_th": "ลาบคั่ว",
+    "carbs": 1.85,
+    "sodium": 599.0,
+    "protein": 13.01,
+    "fat": 12.16
+  },
+  {
+    "id": "19",
+    "name_en": "Gai Phat Med Mamuang Himmapan",
+    "name_th": "ไก่ผัดเม็ดมะม่วงหิมพานต์",
+    "carbs": 5.6,
+    "sodium": 512.0,
+    "protein": 10.2,
+    "fat": 13.5
+  },
+  {
+    "id": "20",
+    "name_en": "Phat Prik Gang",
+    "name_th": "ผัดพริกแกง",
+    "carbs": 3.3,
+    "sodium": 545.0,
+    "protein": 8.2,
+    "fat": 11.0
+  },
+  {
+    "id": "21",
+    "name_en": "Phat Prik Thai Dam",
+    "name_th": "ผัดพริกไทยดำ",
+    "carbs": 4.4,
+    "sodium": 580.0,
+    "protein": 11.2,
+    "fat": 10.4
+  },
+  {
+    "id": "22",
+    "name_en": "Pla Nueng See Ew",
+    "name_th": "ปลานึ่งซีอิ๊ว",
+    "carbs": 1.9,
+    "sodium": 520.0,
+    "protein": 15.4,
+    "fat": 3.2
+  },
+  {
+    "id": "23",
+    "name_en": "Phat Khanaeng",
+    "name_th": "ผัดแขนง",
+    "carbs": 6.5,
+    "sodium": 485.0,
+    "protein": 5.4,
+    "fat": 11.2
+  },
+  {
+    "id": "24",
+    "name_en": "Khai Krata",
+    "name_th": "ไข่กระทะ",
+    "carbs": 1.3,
+    "sodium": 345.0,
+    "protein": 12.1,
+    "fat": 15.4
+  },
+  {
+    "id": "26",
+    "name_en": "Kuaitiao Ruea",
+    "name_th": "ก๋วยเตี๋ยวเรือ",
+    "carbs": 10.6,
+    "sodium": 440.0,
+    "protein": 4.3,
+    "fat": 3.6
+  },
+  {
+    "id": "27",
+    "name_en": "Khai Tun",
+    "name_th": "ไข่ตุ๋น",
+    "carbs": 1.0,
+    "sodium": 320.0,
+    "protein": 6.0,
+    "fat": 4.1
+  },
+  {
+    "id": "28",
+    "name_en": "Roti",
+    "name_th": "โรตี",
+    "carbs": 52.37,
+    "sodium": 334.0,
+    "protein": 7.37,
+    "fat": 13.3
+  },
+  {
+    "id": "29",
+    "name_en": "Mu Hong",
+    "name_th": "หมูฮ้อง",
+    "carbs": 6.0,
+    "sodium": 480.0,
+    "protein": 12.5,
+    "fat": 32.4
+  },
+  {
+    "id": "30",
+    "name_en": "Nam Prik Num",
+    "name_th": "น้ำพริกหนุ่ม",
+    "carbs": 9.2,
+    "sodium": 620.0,
+    "protein": 2.1,
+    "fat": 1.2
+  },
+  {
+    "id": "31",
+    "name_en": "Phat Thai Ho Khai",
+    "name_th": "ผัดไทยห่อไข่",
+    "carbs": 20.8,
+    "sodium": 460.0,
+    "protein": 7.8,
+    "fat": 11.2
+  },
+  {
+    "id": "32",
+    "name_en": "Nam Prik Ong",
+    "name_th": "น้ำพริกอ่อง",
+    "carbs": 4.8,
+    "sodium": 550.0,
+    "protein": 8.5,
+    "fat": 12.4
+  },
+  {
+    "id": "33",
+    "name_en": "Pla Muek Thot",
+    "name_th": "ปลาหมึกทอด",
+    "carbs": 9.77,
+    "sodium": 550.0,
+    "protein": 14.2,
+    "fat": 15.6
+  },
+  {
+    "id": "34",
+    "name_en": "Kua Kling",
+    "name_th": "คั่วกลิ้ง",
+    "carbs": 19.5,
+    "sodium": 640.0,
+    "protein": 18.4,
+    "fat": 13.5
+  },
+  {
+    "id": "35",
+    "name_en": "Phat Kana",
+    "name_th": "ผัดคะน้า",
+    "carbs": 5.0,
+    "sodium": 490.0,
+    "protein": 6.2,
+    "fat": 12.4
+  },
+  {
+    "id": "36",
+    "name_en": "Pla Nueng Manao",
+    "name_th": "ปลานึ่งมะนาว",
+    "carbs": 7.9,
+    "sodium": 510.0,
+    "protein": 14.1,
+    "fat": 1.8
+  },
+  {
+    "id": "37",
+    "name_en": "Tom Kha",
+    "name_th": "ต้มข่า",
+    "carbs": 3.2,
+    "sodium": 395.0,
+    "protein": 4.5,
+    "fat": 8.8
+  },
+  {
+    "id": "38",
+    "name_en": "Yam Woon Sen",
+    "name_th": "ยำวุ้นเส้น",
+    "carbs": 14.9,
+    "sodium": 580.0,
+    "protein": 5.4,
+    "fat": 1.2
+  },
+  {
+    "id": "39",
+    "name_en": "Pla Phao",
+    "name_th": "ปลาเผา",
+    "carbs": 0.6,
+    "sodium": 210.0,
+    "protein": 19.8,
+    "fat": 1.5
+  },
+  {
+    "id": "40",
+    "name_en": "Pla Muek Phat Nam Dam",
+    "name_th": "ปลาหมึกผัดน้ำดำ",
+    "carbs": 3.8,
+    "sodium": 620.0,
+    "protein": 12.8,
+    "fat": 8.4
+  },
+  {
+    "id": "41",
+    "name_en": "Kiao Thot",
+    "name_th": "เกี๊ยวทอด",
+    "carbs": 25.2,
+    "sodium": 380.0,
+    "protein": 5.2,
+    "fat": 24.8
+  },
+  {
+    "id": "42",
+    "name_en": "Kang Thot Kratiam",
+    "name_th": "กั้งทอดกระเทียม",
+    "carbs": 5.9,
+    "sodium": 480.0,
+    "protein": 16.5,
+    "fat": 6.5
+  },
+  {
+    "id": "43",
+    "name_en": "Phat Pak Bung Fai Daeng",
+    "name_th": "ผัดผักบุ้งไฟแดง",
+    "carbs": 5.1,
+    "sodium": 530.0,
+    "protein": 2.3,
+    "fat": 6.5
+  },
+  {
+    "id": "44",
+    "name_en": "Tao Hoo Thot",
+    "name_th": "เต้าหู้ทอด",
+    "carbs": 11.5,
+    "sodium": 25.0,
+    "protein": 12.0,
+    "fat": 16.2
+  },
+  {
+    "id": "45",
+    "name_en": "Yam Hoi",
+    "name_th": "ยำหอย",
+    "carbs": 7.5,
+    "sodium": 650.0,
+    "protein": 10.5,
+    "fat": 1.1
+  },
+  {
+    "id": "46",
+    "name_en": "Suki Haeng",
+    "name_th": "สุกี้แห้ง",
+    "carbs": 13.0,
+    "sodium": 590.0,
+    "protein": 6.8,
+    "fat": 13.0
+  },
+  {
+    "id": "47",
+    "name_en": "Kung Thot",
+    "name_th": "กุ้งทอด",
+    "carbs": 19.5,
+    "sodium": 420.0,
+    "protein": 12.8,
+    "fat": 12.8
+  },
+  {
+    "id": "48",
+    "name_en": "Po Pia Sod",
+    "name_th": "ปอเปี๊ยะสด",
+    "carbs": 24.13,
+    "sodium": 375.0,
+    "protein": 4.99,
+    "fat": 5.57
+  },
+  {
+    "id": "49",
+    "name_en": "Phat Prik Sod",
+    "name_th": "ผัดพริกสด",
+    "carbs": 2.5,
+    "sodium": 535.0,
+    "protein": 8.5,
+    "fat": 11.2
+  },
+  {
+    "id": "50",
+    "name_en": "Kaeng Hang Le",
+    "name_th": "แกงฮังเล",
+    "carbs": 5.21,
+    "sodium": 578.0,
+    "protein": 11.14,
+    "fat": 16.0
+  },
+  {
+    "id": "51",
+    "name_en": "Khanom Cheeb",
+    "name_th": "ขนมจีบ",
+    "carbs": 11.82,
+    "sodium": 521.0,
+    "protein": 11.3,
+    "fat": 10.4
+  },
+  {
+    "id": "52",
+    "name_en": "Kuaitiao Kua Kai",
+    "name_th": "ก๋วยเตี๋ยวคั่วไก่",
+    "carbs": 15.9,
+    "sodium": 415.0,
+    "protein": 7.2,
+    "fat": 8.4
+  },
+  {
+    "id": "53",
+    "name_en": "Pu Nim Thot Kratiam",
+    "name_th": "ปูนิ่มทอดกระเทียม",
+    "carbs": 8.6,
+    "sodium": 460.0,
+    "protein": 13.5,
+    "fat": 20.4
+  },
+  {
+    "id": "54",
+    "name_en": "Kalampli Phat Nam Pla",
+    "name_th": "กะหล่ำปลีผัดน้ำปลา",
+    "carbs": 5.3,
+    "sodium": 480.0,
+    "protein": 480.0,
+    "fat": 5.2
+  },
+  {
+    "id": "55",
+    "name_en": "Khao Mok Kai",
+    "name_th": "ข้าวหมกไก่",
+    "carbs": 24.39,
+    "sodium": 221.0,
+    "protein": 7.3,
+    "fat": 6.03
+  },
+  {
+    "id": "56",
+    "name_en": "Phat Kapi",
+    "name_th": "ผัดกะปิ",
+    "carbs": 4.5,
+    "sodium": 760.0,
+    "protein": 12.8,
+    "fat": 11.4
+  },
+  {
+    "id": "57",
+    "name_en": "Sai Ua",
+    "name_th": "ไส้อั่ว",
+    "carbs": 5.8,
+    "sodium": 645.0,
+    "protein": 14.2,
+    "fat": 22.8
+  },
+  {
+    "id": "58",
+    "name_en": "Yam Pla Duk Fu",
+    "name_th": "ยำปลาดุกฟู",
+    "carbs": 11.5,
+    "sodium": 520.0,
+    "protein": 12.4,
+    "fat": 28.5
+  },
+  {
+    "id": "59",
+    "name_en": "Hoi Thot",
+    "name_th": "หอยทอด",
+    "carbs": 17.2,
+    "sodium": 410.0,
+    "protein": 7.2,
+    "fat": 17.5
+  },
+  {
+    "id": "60",
+    "name_en": "Phat Kaprao",
+    "name_th": "ผัดกะเพรา",
+    "carbs": 3.0,
+    "sodium": 540.0,
+    "protein": 12.5,
+    "fat": 11.8
+  },
+  {
+    "id": "61",
+    "name_en": "Khao Suai",
+    "name_th": "ข้าวสวย",
+    "carbs": 31.1,
+    "sodium": 20.0,
+    "protein": 2.28,
+    "fat": 0.24
+  },
+  {
+    "id": "62",
+    "name_en": "Hoi Cho",
+    "name_th": "หอยจ๊อ",
+    "carbs": 9.72,
+    "sodium": 429.0,
+    "protein": 15.9,
+    "fat": 20.18
+  },
+  {
+    "id": "63",
+    "name_en": "Hoi Phat Nam Prik Phao",
+    "name_th": "หอยผัดน้ำพริกเผา",
+    "carbs": 5.8,
+    "sodium": 858.0,
+    "protein": 9.2,
+    "fat": 8.4
+  },
+  {
+    "id": "64",
+    "name_en": "Khao Kha Mu",
+    "name_th": "ข้าวขาหมู",
+    "carbs": 19.34,
+    "sodium": 324.0,
+    "protein": 7.19,
+    "fat": 5.93
+  },
+  {
+    "id": "65",
+    "name_en": "Kaeng Kua Hoi",
+    "name_th": "แกงคั่วหอย",
+    "carbs": 3.1,
+    "sodium": 510.0,
+    "protein": 7.8,
+    "fat": 11.2
+  },
+  {
+    "id": "66",
+    "name_en": "Khao Tom",
+    "name_th": "ข้าวต้ม",
+    "carbs": 9.58,
+    "sodium": 226.0,
+    "protein": 4.19,
+    "fat": 1.09
+  },
+  {
+    "id": "67",
+    "name_en": "Khao Mu Daeng",
+    "name_th": "ข้าวหมูแดง",
+    "carbs": 22.72,
+    "sodium": 284.0,
+    "protein": 6.29,
+    "fat": 4.18
+  },
+  {
+    "id": "68",
+    "name_en": "Palo",
+    "name_th": "พะโล้",
+    "carbs": 14.13,
+    "sodium": 416.0,
+    "protein": 8.9,
+    "fat": 4.23
+  },
+  {
+    "id": "69",
+    "name_en": "Kua Prik Kluea",
+    "name_th": "คั่วพริกเกลือ",
+    "carbs": 3.8,
+    "sodium": 690.0,
+    "protein": 14.5,
+    "fat": 15.6
+  },
+  {
+    "id": "70",
+    "name_en": "Rat Na",
+    "name_th": "ราดหน้า",
+    "carbs": 14.2,
+    "sodium": 395.0,
+    "protein": 4.6,
+    "fat": 4.4
+  },
+  {
+    "id": "71",
+    "name_en": "Tao Jiao Lon",
+    "name_th": "เต้าเจี้ยวหลน",
+    "carbs": 5.2,
+    "sodium": 625.0,
+    "protein": 5.4,
+    "fat": 12.8
+  },
+  {
+    "id": "72",
+    "name_en": "Yentafo",
+    "name_th": "เย็นตาโฟ",
+    "carbs": 8.23,
+    "sodium": 239.0,
+    "protein": 3.05,
+    "fat": 2.67
+  },
+  {
+    "id": "73",
+    "name_en": "Pla Muek Ngueng Manao",
+    "name_th": "ปลาหมึกนึ่งมะนาว",
+    "carbs": 3.8,
+    "sodium": 540.0,
+    "protein": 13.5,
+    "fat": 2.1
+  },
+  {
+    "id": "74",
+    "name_en": "Kaeng Pa",
+    "name_th": "แกงป่า",
+    "carbs": 3.3,
+    "sodium": 214.0,
+    "protein": 5.6,
+    "fat": 0.8
+  },
+  {
+    "id": "75",
+    "name_en": "Chok",
+    "name_th": "โจ๊ก",
+    "carbs": 5.3,
+    "sodium": 340.0,
+    "protein": 3.5,
+    "fat": 2.2
+  },
+  {
+    "id": "76",
+    "name_en": "Khanom Cheen Nam Ngiao",
+    "name_th": "ขนมจีนน้ำเงี้ยว",
+    "carbs": 5.2,
+    "sodium": 279.0,
+    "protein": 2.71,
+    "fat": 8.41
+  },
+  {
+    "id": "78",
+    "name_en": "Kaeng Som",
+    "name_th": "แกงส้ม",
+    "carbs": 3.93,
+    "sodium": 300.0,
+    "protein": 2.53,
+    "fat": 0.16
+  },
+  {
+    "id": "79",
+    "name_en": "Hoi Nangrom",
+    "name_th": "หอยนางรม",
+    "carbs": 3.6,
+    "sodium": 210.0,
+    "protein": 9.0,
+    "fat": 2.3
+  },
+  {
+    "id": "80",
+    "name_en": "Khanom Cheen",
+    "name_th": "ขนมจีน",
+    "carbs": 21.0,
+    "sodium": 15.0,
+    "protein": 0.9,
+    "fat": 0.1
+  },
+  {
+    "id": "81",
+    "name_en": "Kaeng Lueang",
+    "name_th": "แกงเหลือง",
+    "carbs": 1.32,
+    "sodium": 874.0,
+    "protein": 7.8,
+    "fat": 0.14
+  },
+  {
+    "id": "82",
+    "name_en": "Kung Chae Nam Pla",
+    "name_th": "กุ้งแช่น้ำปลา",
+    "carbs": 3.5,
+    "sodium": 1050.0,
+    "protein": 15.2,
+    "fat": 0.8
+  },
+  {
+    "id": "83",
+    "name_en": "Kung Thot Sot Makham",
+    "name_th": "กุ้งทอดซอสมะขาม",
+    "carbs": 12.0,
+    "sodium": 410.0,
+    "protein": 12.0,
+    "fat": 16.5
+  },
+  {
+    "id": "84",
+    "name_en": "Mu Krop",
+    "name_th": "หมูกรอบ",
+    "carbs": 1.0,
+    "sodium": 320.0,
+    "protein": 13.5,
+    "fat": 53.0
+  },
+  {
+    "id": "85",
+    "name_en": "Pu Phat Phong Kari",
+    "name_th": "ปูผัดผงกะหรี่",
+    "carbs": 4.8,
+    "sodium": 580.0,
+    "protein": 10.8,
+    "fat": 12.5
+  },
+  {
+    "id": "86",
+    "name_en": "Khai Chiao",
+    "name_th": "ไข่เจียว",
+    "carbs": 1.0,
+    "sodium": 450.0,
+    "protein": 10.5,
+    "fat": 25.5
+  },
+  {
+    "id": "88",
+    "name_en": "Phat Cha",
+    "name_th": "ผัดฉ่า",
+    "carbs": 3.5,
+    "sodium": 560.0,
+    "protein": 11.2,
+    "fat": 8.5
+  },
+  {
+    "id": "89",
+    "name_en": "Hoi Kraeng Luak",
+    "name_th": "หอยแครงลวก",
+    "carbs": 4.0,
+    "sodium": 250.0,
+    "protein": 14.5,
+    "fat": 1.2
+  },
+  {
+    "id": "90",
+    "name_en": "Ho Mok",
+    "name_th": "ห่อหมก",
+    "carbs": 2.2,
+    "sodium": 514.0,
+    "protein": 11.2,
+    "fat": 10.3
+  },
+  {
+    "id": "91",
+    "name_en": "Pla Muek Phat Kai Kem",
+    "name_th": "ปลาหมึกผัดไข่เค็ม",
+    "carbs": 5.5,
+    "sodium": 620.0,
+    "protein": 12.1,
+    "fat": 10.8
+  },
+  {
+    "id": "92",
+    "name_en": "Phat Thai",
+    "name_th": "ผัดไทย",
+    "carbs": 20.67,
+    "sodium": 445.0,
+    "protein": 6.83,
+    "fat": 6.33
+  },
+  {
+    "id": "93",
+    "name_en": "Thot Man Kung",
+    "name_th": "ทอดมันกุ้ง",
+    "carbs": 9.17,
+    "sodium": 473.0,
+    "protein": 14.8,
+    "fat": 16.78
+  },
+  {
+    "id": "94",
+    "name_en": "Sate",
+    "name_th": "สะเต๊ะ",
+    "carbs": 15.03,
+    "sodium": 342.0,
+    "protein": 20.07,
+    "fat": 14.57
+  },
+  {
+    "id": "95",
+    "name_en": "Khao Man Kai",
+    "name_th": "ข้าวมันไก่",
+    "carbs": 28.01,
+    "sodium": 483.0,
+    "protein": 5.36,
+    "fat": 9.51
+  },
+  {
+    "id": "97",
+    "name_en": "Lap",
+    "name_th": "ลาบ",
+    "carbs": 1.85,
+    "sodium": 599.0,
+    "protein": 13.01,
+    "fat": 12.16
+  },
+  {
+    "id": "98",
+    "name_en": "Bai Liang Phat Khai",
+    "name_th": "ใบเหลียงผัดไข่",
+    "carbs": 6.4,
+    "sodium": 380.0,
+    "protein": 5.2,
+    "fat": 11.5
+  },
+  {
+    "id": "99",
+    "name_en": "Khao Soi",
+    "name_th": "ข้าวซอย",
+    "carbs": 7.37,
+    "sodium": 416.0,
+    "protein": 5.83,
+    "fat": 10.56
+  },
+  {
+    "id": "100",
+    "name_en": "Kao Lao",
+    "name_th": "เกาเหลา",
+    "carbs": 1.94,
+    "sodium": 371.0,
+    "protein": 3.01,
+    "fat": 1.37
+  },
+  {
+    "id": "101",
+    "name_en": "Thot Man Pla",
+    "name_th": "ทอดมันปลา",
+    "carbs": 4.8,
+    "sodium": 516.0,
+    "protein": 14.38,
+    "fat": 9.88
+  },
+  {
+    "id": "102",
+    "name_en": "Pu Nueng",
+    "name_th": "ปูนึ่ง",
+    "carbs": 0.0,
+    "sodium": 320.0,
+    "protein": 19.5,
+    "fat": 1.2
+  },
+  {
+    "id": "103",
+    "name_en": "Mu Yang",
+    "name_th": "หมูย่าง",
+    "carbs": 1.2,
+    "sodium": 520.0,
+    "protein": 22.5,
+    "fat": 12.8
+  },
+  {
+    "id": "104",
+    "name_en": "Som Tam",
+    "name_th": "ส้มตำ",
+    "carbs": 14.34,
+    "sodium": 627.0,
+    "protein": 4.29,
+    "fat": 2.65
+  },
+  {
+    "id": "106",
+    "name_en": "Khao Phat",
+    "name_th": "ข้าวผัด",
+    "carbs": 24.26,
+    "sodium": 335.0,
+    "protein": 4.56,
+    "fat": 4.14
+  },
+  {
+    "id": "107",
+    "name_en": "Tom Yam",
+    "name_th": "ต้มยำ",
+    "carbs": 2.86,
+    "sodium": 521.0,
+    "protein": 4.67,
+    "fat": 1.43
+  },
+  {
+    "id": "108",
+    "name_en": "Pla Thot",
+    "name_th": "ปลาทอด",
+    "carbs": 2.4,
+    "sodium": 350.0,
+    "protein": 18.2,
+    "fat": 19.5
+  },
+  {
+    "id": "109",
+    "name_en": "Grilled Squid",
+    "name_th": "ปลาหมึกย่าง",
+    "carbs": 1.0,
+    "sodium": 450.0,
+    "protein": 18.0,
+    "fat": 1.5
+  },
+  {
+    "id": "110",
+    "name_en": "Stir-Fried Clams with Chili Paste",
+    "name_th": "หอยลายผัดน้ำพริก",
+    "carbs": 8.5,
+    "sodium": 700.0,
+    "protein": 9.0,
+    "fat": 10.0
+  },
+  {
+    "id": "113",
+    "name_en": "Mango Sticky Rice",
+    "name_th": "ข้าวเหนียวมะม่วง",
+    "carbs": 34.0,
+    "sodium": 120.0,
+    "protein": 2.5,
+    "fat": 6.5
+  },
+  {
+    "id": "114",
+    "name_en": "Chicken Massaman Curry",
+    "name_th": "มัสมั่นไก่",
+    "carbs": 12.65,
+    "sodium": 313.0,
+    "protein": 10.28,
+    "fat": 10.99
+  }
+]

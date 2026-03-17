@@ -508,6 +508,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                           _protein = result['protein'] ?? _protein;
                           _carbs = result['carbs'] ?? _carbs;
                           _fat = result['fat'] ?? _fat;
+                          _sodium = result['sodium'] ?? _sodium;
                           _estimatedWeight =
                               result['estimatedWeight'] ?? _estimatedWeight;
                           // Check if image was uploaded to GCS
