@@ -78,6 +78,15 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
     });
   }
 
+  void _recalculateCalories() {
+    // Calculate calories based on macronutrients
+    // Protein: 4 kcal/g, Fat: 9 kcal/g, Carbs: 4 kcal/g
+    final calculatedCalories = (_protein * 4) + (_fat * 9) + (_carbs * 4);
+    setState(() {
+      _calories = calculatedCalories;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -190,6 +199,7 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
                   200,
                   (value) {
                     setState(() => _protein = value);
+                    _recalculateCalories();
                   },
                 ),
                 const SizedBox(height: 20),
@@ -204,6 +214,7 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
                   300,
                   (value) {
                     setState(() => _carbs = value);
+                    _recalculateCalories();
                   },
                 ),
                 const SizedBox(height: 20),
@@ -218,6 +229,7 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
                   150,
                   (value) {
                     setState(() => _fat = value);
+                    _recalculateCalories();
                   },
                 ),
                 const SizedBox(height: 20),
@@ -575,6 +587,10 @@ class _MealConfirmationScreenState extends State<MealConfirmationScreen> {
               final newValue = double.tryParse(controller.text);
               if (newValue != null && newValue >= min && newValue <= max) {
                 onChanged(newValue);
+                // Recalculate calories if editing macronutrients
+                if (label == 'โปรตีน' || label == 'คาร์โบไฮเดรต' || label == 'ไขมัน') {
+                  _recalculateCalories();
+                }
                 Navigator.pop(context);
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
