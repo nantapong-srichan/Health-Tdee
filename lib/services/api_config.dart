@@ -4,7 +4,10 @@ class ApiConfig {
   // For Android emulator: http://10.0.2.2:5000
   // For physical device: http://YOUR_COMPUTER_IP:5000
   
-  static const String baseUrl = 'http://10.0.2.2:5000/api';
+  //static const String baseUrl = 'http://10.0.2.2:5000/api';
+
+
+  static const String baseUrl = 'https://health-app-backup.onrender.com/api';
   
   // Change this to your actual backend URL when deploying
   // Example: 'https://health-app-backend.railway.app/api'

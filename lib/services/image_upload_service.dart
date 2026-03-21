@@ -7,7 +7,9 @@ class ImageUploadService {
   final String baseUrl;
   // ใช้ 10.0.2.2 สำหรับ Android emulator (ชี้ไปที่ host machine)
   // ใช้ localhost สำหรับ iOS emulator และ web
-  const ImageUploadService({this.baseUrl = 'http://10.0.2.2:5000'}); // Backend port 5000
+  //const ImageUploadService({this.baseUrl = 'http://10.0.2.2:5000'}); // Backend port 5000
+
+  const ImageUploadService({this.baseUrl = 'https://health-app-backup.onrender.com'}); // Render backend
 
   /// อัปโหลดรูปภาพไปยัง backend พร้อมข้อมูล meal
   /// ส่งคืน URL ของรูปภาพที่อัปโหลด หรือ null หากล้มเหลว
