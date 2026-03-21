@@ -14,6 +14,7 @@ import 'food_recommendations_v2.dart' as food_rec;
 import 'food_recommendation_categories.dart';
 import 'services/meal_service.dart';
 import 'services/image_upload_service.dart';
+import 'services/api_config.dart';
 
 class ResultsScreen extends StatefulWidget {
   final XFile imageFile;
@@ -38,6 +39,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
   late double _estimatedWeight;
   late String _currentFoodName; // ชื่ออาหารที่อาจเปลี่ยนแปลง
   bool _isLoading = true;
+  bool _isSubmitting = false; // ป้องกัน duplicate submission
   String? _uploadedImageUrl;
 
   @override
@@ -92,8 +94,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
     if (query.isEmpty) return [];
     
     try {
+      // //Uri.parse('http://10.0.2.2:5000/api/foods'), // localhost
       final response = await http.get(
-        Uri.parse('http://10.0.2.2:5000/api/foods'),
+        Uri.parse('${ApiConfig.baseUrl}/foods'),
         headers: {'Content-Type': 'application/json'},
       ).timeout(const Duration(seconds: 5));
 
@@ -544,25 +547,34 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 // Confirm Button
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () {
+                    onPressed: _isSubmitting ? null : () {
                       _handleConfirmMeal();
                     },
-                    icon: const Icon(Icons.check_circle),
+                    icon: _isSubmitting 
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Icon(Icons.check_circle),
                     label: Text(
-                      'ยืนยัน',
+                      _isSubmitting ? 'กำลังบันทึก...' : 'ยืนยัน',
                       style: GoogleFonts.kanit(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFABB5A),
+                      backgroundColor: _isSubmitting ? Colors.grey[400] : const Color(0xFFFABB5A),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      elevation: 4,
+                      elevation: _isSubmitting ? 0 : 4,
                     ),
                   ),
                 ),
@@ -1284,6 +1296,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
 
   // Handle meal confirmation asynchronously to prevent UI freezing
   Future<void> _handleConfirmMeal() async {
+    // Prevent duplicate submissions
+    if (_isSubmitting) return;
+    
     // Show loading indicator
     if (!mounted) return;
 
@@ -1292,6 +1307,10 @@ class _ResultsScreenState extends State<ResultsScreen> {
     final imageUploadService = ImageUploadService();
 
     try {
+      // Set flag to prevent duplicate submissions
+      setState(() {
+        _isSubmitting = true;
+      });
       String? finalImageUrl = _uploadedImageUrl;
 
       // If image not yet uploaded and we have an image file, upload it now
@@ -1493,6 +1512,10 @@ class _ResultsScreenState extends State<ResultsScreen> {
               duration: const Duration(seconds: 2),
             ),
           );
+          // Reset submission flag on error
+          setState(() {
+            _isSubmitting = false;
+          });
         }
       }
     } catch (e) {
@@ -1505,6 +1528,10 @@ class _ResultsScreenState extends State<ResultsScreen> {
             duration: const Duration(seconds: 2),
           ),
         );
+        // Reset submission flag on error
+        setState(() {
+          _isSubmitting = false;
+        });
       }
     }
   }

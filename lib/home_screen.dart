@@ -2166,6 +2166,9 @@ class _HomeScreenState extends State<HomeScreen> {
         
         final chartData = _get7DaysCarbsData(data);
         final carbLimit = data.diabetesCarbLimit ?? 150.0;
+        // Calculate dynamic maxY based on actual data
+        final maxDataValue = chartData.isEmpty ? carbLimit : chartData.map((d) => d.y).reduce((a, b) => a > b ? a : b);
+        final calculatedMaxY = (maxDataValue * 1.15).clamp(carbLimit * 1.3, double.infinity);
         
         return Container(
           padding: const EdgeInsets.all(16),
@@ -2252,7 +2255,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         sideTitles: fl_chart.SideTitles(
                           showTitles: true,
                           getTitlesWidget: (value, meta) {
-                            if (value == carbLimit * 1.2) {
+                            if (value == calculatedMaxY) {
                               return const Text('');
                             }
                             return Text('${value.toInt()}', style: theme.bodySmall, textAlign: TextAlign.center);
@@ -2263,7 +2266,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     borderData: fl_chart.FlBorderData(show: false),
                     minY: 0,
-                    maxY: carbLimit * 1.2,
+                    maxY: calculatedMaxY,
                     barTouchData: fl_chart.BarTouchData(
                       enabled: true,
                       handleBuiltInTouches: true,
@@ -2467,6 +2470,9 @@ class _HomeScreenState extends State<HomeScreen> {
         
         final chartData = _get14DaysCarbsData(data);
         final carbLimit = data.diabetesCarbLimit ?? 150.0;
+        // Calculate dynamic maxY based on actual data
+        final maxDataValue = chartData.isEmpty ? carbLimit : chartData.map((d) => d.y).reduce((a, b) => a > b ? a : b);
+        final calculatedMaxY = (maxDataValue * 1.15).clamp(carbLimit * 1.3, double.infinity);
         
         return Container(
           padding: const EdgeInsets.all(16),
@@ -2554,7 +2560,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         sideTitles: fl_chart.SideTitles(
                           showTitles: true,
                           getTitlesWidget: (value, meta) {
-                            if (value == carbLimit * 1.2) {
+                            if (value == calculatedMaxY) {
                               return const Text('');
                             }
                             return Text('${value.toInt()}', style: theme.bodySmall, textAlign: TextAlign.center);
@@ -2565,7 +2571,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     borderData: fl_chart.FlBorderData(show: false),
                     minY: 0,
-                    maxY: carbLimit * 1.2,
+                    maxY: calculatedMaxY,
                     barTouchData: fl_chart.BarTouchData(
                       enabled: true,
                       handleBuiltInTouches: true,

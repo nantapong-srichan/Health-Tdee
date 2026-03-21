@@ -4,7 +4,11 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async';
 
-const String API_BASE_URL = 'http://10.0.2.2:5000/api';
+// const String API_BASE_URL = 'http://10.0.2.2:5000/api';
+//const String API_BASE_URL = 'https://health-app-backup.onrender.com/api';
+
+// Updated for ngrok tunnel
+const String API_BASE_URL = 'https://suboceanic-unelusively-lue.ngrok-free.dev/api';
 
 class CalculationResult {
   final double calories;
