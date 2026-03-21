@@ -385,4 +385,19 @@ class SessionData with ChangeNotifier {
         return 'ไม่ได้กำหนด';
     }
   }
+
+  // ============ Water Intake Recommendation ============
+  // คำนวณปริมาณน้ำที่ควรดื่มต่อวัน (สูตร: weight / 2 * 2.2 * 30)
+  double getDailyWaterRecommendation() {
+    if (weightDouble == null || weightDouble! <= 0) {
+      return 0;
+    }
+    return (weightDouble! / 2) * 2.2 * 30; // ml
+  }
+
+  // คำนวณจำนวนแก้ว (250ml ต่อแก้ว)
+  int getWaterGlassCount() {
+    final waterMl = getDailyWaterRecommendation();
+    return (waterMl / 250).ceil();
+  }
 }

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 // import 'package:image/image.dart' as img; // (ไม่จำเป็นต้องใช้แล้ว)
 import 'tflite_service.dart';
 import 'results_screen.dart';
@@ -22,6 +23,10 @@ class _ImagePickerScreenState extends State<ImagePickerScreen> {
   final TFLiteService _tfliteService = TFLiteService();
   bool _isLoading = false;
 
+  // สถานะสิทธิ์ Camera
+  PermissionStatus? _cameraPermissionStatus;
+  bool _hasCameraPermission = false;
+
   @override
   void initState() {
     super.initState();
@@ -29,6 +34,9 @@ class _ImagePickerScreenState extends State<ImagePickerScreen> {
     print('🔄 Calling _tfliteService.loadModels()...');
     _tfliteService.loadModels();
     print('✅ loadModels() call completed (async)');
+    
+    // ขอสิทธิ์ Camera
+    _requestCameraPermission();
   }
 
   @override
@@ -36,6 +44,59 @@ class _ImagePickerScreenState extends State<ImagePickerScreen> {
     _tfliteService.dispose();
     super.dispose();
   }
+
+  /// ███████████ 🎥 CAMERA PERMISSIONS ███████████
+  Future<void> _requestCameraPermission() async {
+    try {
+      final status = await Permission.camera.request();
+      setState(() {
+        _cameraPermissionStatus = status;
+        _hasCameraPermission = status.isGranted;
+      });
+
+      if (status.isDenied) {
+        print('📸 Camera permission denied');
+      } else if (status.isPermanentlyDenied) {
+        print('📸 Camera permission permanently denied - opening app settings');
+        // เปิดหน้า settings ให้ผู้ใช้อนุญาต
+        openAppSettings();
+      } else if (status.isGranted) {
+        print('✅ Camera permission granted!');
+      }
+    } catch (e) {
+      print('❌ Error requesting camera permission: $e');
+    }
+  }
+
+  /// ถ่ายรูปด้วย Camera โดยตรง
+  Future<void> _pickImageFromCamera() async {
+    if (!_hasCameraPermission) {
+      print('📸 Camera permission not granted');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ต้องอนุญาตการเข้าถึง Camera ก่อน')),
+      );
+      await _requestCameraPermission();
+      return;
+    }
+
+    try {
+      final XFile? pickedFile =
+          await _picker.pickImage(source: ImageSource.camera);
+
+      if (pickedFile == null) return; // ผู้ใช้ยกเลิก
+
+      setState(() {
+        _imageFile = File(pickedFile.path);
+      });
+    } catch (e) {
+      print("Error picking image from camera: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('เกิดข้อผิดพลาดในการถ่ายรูป: $e')),
+      );
+    }
+  }
+  /// ███████████████████████████████████████████
+
 
 
   Future<void> _pickImageFromGallery() async {
@@ -204,14 +265,26 @@ class _ImagePickerScreenState extends State<ImagePickerScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          // ปุ่มเลือกรูปจากคลัง
           IconButton(
             icon: const Icon(Icons.photo_library_outlined, size: 32, color: Colors.black87),
             onPressed: _pickImageFromGallery,
+            tooltip: 'เลือกจากคลัง',
           ),
+          
+          // ปุ่มถ่ายรูปด้วย Camera (ใหม่)
+          IconButton(
+            icon: const Icon(Icons.camera_alt_outlined, size: 32, color: Colors.black87),
+            onPressed: _hasCameraPermission ? _pickImageFromCamera : _requestCameraPermission,
+            tooltip: 'ถ่ายรูป',
+          ),
+          
+          // ปุ่มส่งไปประมวลผล
           _imageFile != null
               ? IconButton(
                   icon: const Icon(Icons.arrow_forward, size: 32, color: Colors.black87),
                   onPressed: _submitImage,
+                  tooltip: 'ส่งประมวลผล',
                 )
               : const SizedBox(width: 48),
         ],

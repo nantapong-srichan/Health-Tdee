@@ -94,28 +94,58 @@ class TFLiteService {
     }
   }
 
-  // Preprocess image for YOLO (416x416)
+  // Preprocess image for YOLO (416x416) with letterbox (aspect ratio padding)
   List<List<List<List<double>>>> _preprocessImageForYOLO(img.Image imageData) {
-    // 1. Image already decoded, resize to 416x416 for YOLO
-    final int height = 416;
-    final int width = 416;
+    // ✅ Use letterbox padding (YOLO standard) instead of simple resize
+    final int targetSize = 416;
     
+    // 1. Calculate aspect ratio and scale
+    final double aspectRatio = imageData.width / imageData.height;
+    final double targetAspect = 1.0; // 416/416 = 1.0
+    
+    late int newWidth, newHeight;
+    if (aspectRatio > targetAspect) {
+      // Image is wider - fit to width
+      newWidth = targetSize;
+      newHeight = (targetSize / aspectRatio).ceil();
+    } else {
+      // Image is taller - fit to height
+      newHeight = targetSize;
+      newWidth = (targetSize * aspectRatio).ceil();
+    }
+    
+    // 2. Resize with aspect ratio preserved
     final img.Image resized = img.copyResize(
       imageData,
-      width: width,
-      height: height,
-      interpolation: img.Interpolation.nearest
+      width: newWidth,
+      height: newHeight,
+      interpolation: img.Interpolation.linear
     );
     
-    // 3. Normalize to [0,1] range and reshape to [1, 416, 416, 3]
+    // 3. Create padded image (416x416) with gray padding (letterbox standard)
+    final img.Image padded = img.Image(width: targetSize, height: targetSize);
+    
+    // Fill with gray (114, 114, 114) - YOLO standard padding
+    for (int y = 0; y < padded.height; y++) {
+      for (int x = 0; x < padded.width; x++) {
+        padded.setPixelRgba(x, y, 114, 114, 114, 255);
+      }
+    }
+    
+    // 4. Paste resized image in center
+    final int offsetX = (targetSize - newWidth) ~/ 2;
+    final int offsetY = (targetSize - newHeight) ~/ 2;
+    img.compositeImage(padded, resized, dstX: offsetX, dstY: offsetY);
+    
+    // 5. Normalize to [0,1] range
     var shapedInput = List.generate(
       1, // Batch size
       (_) => List.generate(
-        height,
+        targetSize,
         (y) => List.generate(
-          width,
+          targetSize,
           (x) {
-            final pixel = resized.getPixel(x, y);
+            final pixel = padded.getPixel(x, y);
             return [
               pixel.r.toDouble() / 255.0, // R
               pixel.g.toDouble() / 255.0, // G
@@ -151,6 +181,7 @@ class TFLiteService {
           width,
           (x) {
             final pixel = resized.getPixel(x, y);
+            // ✅ Keep RGB format (model trained with RGB)
             return [
               pixel.r.toDouble() / 255.0, // R
               pixel.g.toDouble() / 255.0, // G
@@ -162,59 +193,6 @@ class TFLiteService {
     );
 
     return shapedInput;
-  }
-
-  // Helper function to extract bounding box from YOLO detection output
-  Map<String, dynamic>? _extractBoundingBoxFromYOLO(
-    List<List<List<double>>> outputArray,
-    int detectedClassIndex,
-    int originalImageWidth,
-    int originalImageHeight,
-  ) {
-    try {
-      // YOLO output format: [1, 7, 8400]
-      // outputArray[0][0-3][box_idx] = x, y, w, h (normalized to 640x640)
-      // outputArray[0][4+class][box_idx] = confidence score for each class
-      
-      final int numBoxes = outputArray[0][0].length; // 8400
-      var maxConfidence = -double.infinity;
-      int maxBoxIdx = -1;
-      
-      // Find the box with highest confidence for the detected class
-      for (int i = 0; i < numBoxes; i++) {
-        final confidence = outputArray[0][4 + detectedClassIndex][i];
-        if (confidence > maxConfidence) {
-          maxConfidence = confidence;
-          maxBoxIdx = i;
-        }
-      }
-      
-      if (maxBoxIdx == -1) return null;
-      
-      // Extract box coordinates from YOLO output
-      final double xCenter = outputArray[0][0][maxBoxIdx]; // normalized [0, 1]
-      final double yCenter = outputArray[0][1][maxBoxIdx]; // normalized [0, 1]
-      final double boxWidth = outputArray[0][2][maxBoxIdx];  // normalized [0, 1]
-      final double boxHeight = outputArray[0][3][maxBoxIdx]; // normalized [0, 1]
-      
-      // Convert from normalized coordinates to pixel coordinates
-      // YOLO operates on 640x640 internally
-      final double x1 = ((xCenter - boxWidth / 2) * originalImageWidth).clamp(0.0, originalImageWidth.toDouble());
-      final double y1 = ((yCenter - boxHeight / 2) * originalImageHeight).clamp(0.0, originalImageHeight.toDouble());
-      final double x2 = ((xCenter + boxWidth / 2) * originalImageWidth).clamp(0.0, originalImageWidth.toDouble());
-      final double y2 = ((yCenter + boxHeight / 2) * originalImageHeight).clamp(0.0, originalImageHeight.toDouble());
-      
-      return {
-        'x1': x1.toInt(),
-        'y1': y1.toInt(),
-        'x2': x2.toInt(),
-        'y2': y2.toInt(),
-        'confidence': maxConfidence,
-      };
-    } catch (e) {
-      print('Error extracting bounding box: $e');
-      return null;
-    }
   }
 
   // Helper function to crop image based on bounding box
@@ -357,9 +335,9 @@ class TFLiteService {
       }
 
       final int numClasses = _labels!.length;
-      final int numBoxes = _outShape[2]; // 8400
+      final int numBoxes = _outShape[2]; // Number of predictions
       
-      final int numProperties = _outShape[1]; // 119
+      final int numProperties = _outShape[1]; // 4 coords + 115 classes = 119
       print('DEBUG: Checking output structure - numProperties: $numProperties, numClasses: $numClasses');
       print('DEBUG: Expected: 4 + $numClasses = ${4 + numClasses}, Got: $numProperties');
       
@@ -370,24 +348,30 @@ class TFLiteService {
 
       var maxScore = -double.infinity;
       var maxIdx = -1;
-      const double CONFIDENCE_THRESHOLD = 0.25; // Lowered threshold to 25% for better detection
+      var maxPredIdx = -1;
+      const double CONFIDENCE_THRESHOLD = 0.25;
 
-      // Loop through all 8400 boxes to find the one with the highest confidence
-      for (int i = 0; i < numBoxes; i++) {
-        // For each box, check the confidence score of each class
+      // Loop through all predictions to find the one with the highest confidence
+      // Format confirmed: [1, 119, 3549] = [batch, properties, predictions]
+      for (int predIdx = 0; predIdx < numBoxes; predIdx++) {
         for (int c = 0; c < numClasses; c++) {
-          // The output structure is [1, 119, 8400].
-          // The first 4 properties (0-3) are box coordinates (x,y,w,h).
-          // The next properties (4 onwards) are class confidences (raw logits).
-          final rawScore = outputArray[0][4 + c][i];
-          // Apply sigmoid to convert raw logits to probabilities [0, 1]
+          final rawScore = outputArray[0][4 + c][predIdx]; // ← ORIGINAL indexing
           final score = _sigmoid(rawScore);
-
-          // If this score is the highest we've seen so far, update it
+          
           if (score > maxScore) {
             maxScore = score;
             maxIdx = c;
+            maxPredIdx = predIdx;
           }
+        }
+      }
+      
+      // Debug: Print sample raw scores for top class
+      if (maxIdx >= 0) {
+        print('DEBUG: Sample raw scores for ${_labels![maxIdx]}:');
+        for (int i = 0; i < 5 && i < numBoxes; i++) {
+          final rawScore = outputArray[0][i][4 + maxIdx];
+          print('  Pred[$i]: raw=$rawScore, sigmoid=${_sigmoid(rawScore)}');
         }
       }
       
@@ -409,36 +393,43 @@ class TFLiteService {
       if (maxIdx >= 0 && maxIdx < _labels!.length && maxScore >= CONFIDENCE_THRESHOLD) {
         // 6. Extract bounding box from YOLO output
         print('Extracting bounding box from YOLO detection...');
-        final boundingBox = _extractBoundingBoxFromYOLO(
-          outputArray,
-          maxIdx,
-          originalImageWidth,
-          originalImageHeight,
-        );
         
-        if (boundingBox == null) {
-          print('Warning: Could not extract bounding box, using full image for weight prediction');
-        } else {
-          print('Bounding box extracted: (${boundingBox['x1']}, ${boundingBox['y1']}) to (${boundingBox['x2']}, ${boundingBox['y2']})');
-        }
+        // ✅ Extract bbox using ORIGINAL indexing [properties][predictions]
+        final double xCenter = outputArray[0][0][maxPredIdx]; // normalized [0, 1]
+        final double yCenter = outputArray[0][1][maxPredIdx]; // normalized [0, 1]
+        final double boxWidth = outputArray[0][2][maxPredIdx];  // normalized [0, 1]
+        final double boxHeight = outputArray[0][3][maxPredIdx]; // normalized [0, 1]
+        
+        // Convert from normalized coordinates to pixel coordinates
+        final double x1 = ((xCenter - boxWidth / 2) * originalImageWidth).clamp(0.0, originalImageWidth.toDouble());
+        final double y1 = ((yCenter - boxHeight / 2) * originalImageHeight).clamp(0.0, originalImageHeight.toDouble());
+        final double x2 = ((xCenter + boxWidth / 2) * originalImageWidth).clamp(0.0, originalImageWidth.toDouble());
+        final double y2 = ((yCenter + boxHeight / 2) * originalImageHeight).clamp(0.0, originalImageHeight.toDouble());
+        
+        final boundingBox = {
+          'x1': x1.toInt(),
+          'y1': y1.toInt(),
+          'x2': x2.toInt(),
+          'y2': y2.toInt(),
+          'confidence': maxScore,
+        };
+        
+        print('Bounding box extracted: (${boundingBox['x1']}, ${boundingBox['y1']}) to (${boundingBox['x2']}, ${boundingBox['y2']})');
         
         // 7. Crop image to detected food area
-        img.Image? croppedImage = decodedImage;
-        if (boundingBox != null) {
-          print('Cropping image to detected food area...');
-          croppedImage = _cropImageByBoundingBox(
-            decodedImage,
-            boundingBox['x1'],
-            boundingBox['y1'],
-            boundingBox['x2'],
-            boundingBox['y2'],
-          );
-          if (croppedImage != null) {
-            print('Image cropped successfully: ${croppedImage.width}x${croppedImage.height}');
-          } else {
-            print('Warning: Cropping failed, using full image');
-            croppedImage = decodedImage;
-          }
+        print('Cropping image to detected food area...');
+        img.Image? croppedImage = _cropImageByBoundingBox(
+          decodedImage,
+          boundingBox['x1'] as int,
+          boundingBox['y1'] as int,
+          boundingBox['x2'] as int,
+          boundingBox['y2'] as int,
+        );
+        if (croppedImage == null) {
+          print('Warning: Cropping failed, using full image');
+          croppedImage = decodedImage;
+        } else {
+          print('Image cropped successfully: ${croppedImage.width}x${croppedImage.height}');
         }
         
         // 8. Use weight predictor to estimate weight (with cropped image)

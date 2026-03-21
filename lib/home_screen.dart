@@ -303,8 +303,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 // ใช้ข้อมูล goal จาก sessionData มาแสดงผล
                 _buildTodayCaloriesCard(kanitTheme, sessionData.goal ?? '...'),
                 const SizedBox(height: 24),
-                // Diabetes carbs card (only for Type 2 diabetes users) - show after today calories
-                if (sessionData.hasDiabetes() && sessionData.diabetesType == 'type2') ...[
+                // Diabetes carbs card (for both Type 1 and Type 2 diabetes users)
+                if (sessionData.hasDiabetes()) ...[
                   _buildDiabetesCarbsCard(kanitTheme, sessionData),
                   const SizedBox(height: 24),
                 ],
@@ -313,8 +313,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   _buildHypertensionSodiumCard(kanitTheme, sessionData),
                   const SizedBox(height: 24),
                 ],
-                // Macronutrients cards
+                // Macronutrients cards (includes goal cards - calorie deficit/balance/surplus)
                 _buildMacronutrientsCards(kanitTheme, sessionData),
+                const SizedBox(height: 24),
+                // Water intake recommendation card - moved below goal cards
+                _buildWaterRecommendationCard(kanitTheme, sessionData),
                 const SizedBox(height: 24),
                 _buildDateSelector(kanitTheme, sessionData),
                 const SizedBox(height: 24),
@@ -1000,9 +1003,39 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              // Carbs and Fat Cards - Side by side
+              // 3 Macro cards - Protein, Carbs, Fat
               Row(
                 children: [
+                  // Protein Card
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.local_dining, color: Colors.green, size: 20),
+                          ),
+                          const SizedBox(height: 8),
+                          Text('โปรตีน', style: theme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+                          Text(
+                            '${protein.toStringAsFixed(1)}g',
+                            style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
                   // Carbs Card
                   Expanded(
                     child: Container(
@@ -1584,25 +1617,51 @@ class _HomeScreenState extends State<HomeScreen> {
     return Consumer<SessionData>(
       builder: (context, session, _) {
         final currentCarbs = _getCarbsForDayForDate(session);
-        final carbTarget = session.diabetesCarbLimit ?? 150.0; // Default 150g if not set
+        final isType1 = session.diabetesType == 'type1';
+        
+        // Type 2 specific
+        final carbTarget = session.diabetesCarbLimit ?? 150.0;
         final carbPercent = (currentCarbs / carbTarget).clamp(0.0, 1.5);
+        final carbPercentUsed = ((currentCarbs / carbTarget) * 100).toStringAsFixed(0);
         
-        // Determine status and color
-        String carbStatus;
-        Color carbColor;
+        String mainStatus = '';
+        String recommendation = '';
+        Color statusColor = Colors.grey;
         
-        if (currentCarbs < carbTarget * 0.8) {
-          carbStatus = 'ปลอดภัย - คาร์บต่ำ';
-          carbColor = Colors.green;
-        } else if (currentCarbs >= carbTarget * 0.8 && currentCarbs <= carbTarget) {
-          carbStatus = 'ควบคุมได้ดี - อยู่ในเป้าหมาย';
-          carbColor = Colors.green;
-        } else if (currentCarbs > carbTarget && currentCarbs <= carbTarget * 1.2) {
-          carbStatus = 'เกินเป้าหมาย - ระวัง!';
-          carbColor = Colors.orange;
+        if (isType1) {
+          // Type 1 Daily Summary Logic
+          if (currentCarbs < 100) {
+            mainStatus = '📊 สรุปภาพรวม: วันนี้คุณรับคาร์บไปค่อนข้างน้อย';
+            recommendation = '💡 คำแนะนำ: ตรวจสอบว่ามีช่วงที่น้ำตาลต่ำ (Hypo) หรือไม่ และอย่าลืมบันทึกการปรับลดโดสอินซูลินพื้นฐานตามที่หมอสั่ง';
+            statusColor = Colors.blue;
+          } else if (currentCarbs <= 200) {
+            mainStatus = '✅ สรุปภาพรวม: การรับประทานอยู่ในเกณฑ์ปกติ';
+            recommendation = '⚖️ คำแนะนำ: วันนี้คุณรักษาสมดุลการกินได้ดี อย่าลืมเช็กระดับน้ำตาลก่อนนอนเพื่อความปลอดภัย';
+            statusColor = Colors.green;
+          } else {
+            mainStatus = '🟠 สรุปภาพรวม: วันนี้มีการรับคาร์บสูงกว่าปกติ';
+            recommendation = '💉 คำแนะนำ: การรับคาร์บสูงต้องอาศัยการคำนวณอินซูลินที่แม่นยำ หากน้ำตาลปลายนิ้วสูงผิดปกติ ควรปรึกษาแพทย์เพื่อปรับแผนการรักษา';
+            statusColor = Colors.orange;
+          }
         } else {
-          carbStatus = 'อันตราย! - อาจมีผลเสียต่อระดับน้ำตาลในเลือด';
-          carbColor = Colors.red;
+          // Type 2 Meal-based recommendations
+          if (currentCarbs < 20) {
+            mainStatus = '⚠️ วันนี้รับคาร์บต่ำมาก';
+            recommendation = '💊 ปริมาณคาร์บวันนี้ต่ำกว่าเกณฑ์ขั้นต่ำ เสี่ยงภาวะน้ำตาลต่ำ แนะนำให้รับประทานอาหารที่มีคาร์บเชิงซ้อนหรือผลไม้เพิ่มเพื่อให้ร่างกายมีพลังงานเพียงพอ';
+            statusColor = Colors.red;
+          } else if (currentCarbs < carbTarget * 0.8) {
+            mainStatus = '✅ คุมคาร์บได้ดีเยี่ยม';
+            recommendation = '🥗 วันนี้คุณคุมปริมาณแป้งได้น้อยและมีวินัยมาก ช่วยให้ระดับน้ำตาลคงที่และส่งผลดีต่อการลดน้ำหนักในระยะยาวครับ';
+            statusColor = Colors.green;
+          } else if (currentCarbs <= carbTarget) {
+            mainStatus = '🆗 อยู่ในเกณฑ์ที่เหมาะสม';
+            recommendation = '📊 วันนี้คุณรักษาสมดุลการกินได้ตามโควตาที่กำหนด ($carbPercentUsed%) รักษาวินัยแบบนี้ต่อไปเพื่อสุขภาพที่ดีครับ';
+            statusColor = Colors.green;
+          } else {
+            mainStatus = '⚠️ คาร์บเกินเป้าหมาย!';
+            recommendation = '🚫 วันนี้รับแป้งและน้ำตาลรวมเกินโควตาที่กำหนด แนะนำให้ดื่มน้ำสะอาดเพิ่มและพยายามคุมปริมาณแป้งให้เข้มงวดขึ้นในวันพรุ่งนี้ครับ';
+            statusColor = Colors.orange;
+          }
         }
 
         return Container(
@@ -1630,35 +1689,135 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       Text('ควบคุมคาร์โบไฮเดรตสำหรับเบาหวาน',
                         style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                      if (isType1)
+                        Text(
+                          '${currentCarbs.toStringAsFixed(1)} g (Type 1)',
+                          style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                        )
+                      else
+                        Text(
+                          '${currentCarbs.toStringAsFixed(1)} / ${carbTarget.toStringAsFixed(1)} g',
+                          style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+              if (!isType1) ...[
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: LinearProgressIndicator(
+                    value: carbPercent,
+                    minHeight: 8,
+                    backgroundColor: Colors.grey[200],
+                    valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              Text(
+                mainStatus,
+                style: theme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: statusColor,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                recommendation,
+                style: theme.bodySmall?.copyWith(
+                  color: Colors.grey[700],
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildWaterRecommendationCard(TextTheme theme, SessionData sessionData) {
+    return Consumer<SessionData>(
+      builder: (context, session, _) {
+        // ตรวจสอบว่ามีน้ำหนักหรือไม่
+        if (session.weightDouble == null || session.weightDouble! <= 0) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.water_drop, color: Colors.blue, size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('ดื่มน้ำต่อวัน',
+                          style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                        Text(
+                          'กรุณากรอกน้ำหนัก',
+                          style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }
+
+        final dailyWaterMl = session.getDailyWaterRecommendation();
+        final glassCount = session.getWaterGlassCount();
+        final dailyWaterLiters = dailyWaterMl / 1000;
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.water_drop, color: Colors.blue, size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('น้ำที่ควรดื่มต่อวัน',
+                        style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
                       Text(
-                        '${currentCarbs.toStringAsFixed(1)} / ${carbTarget.toStringAsFixed(1)} g',
+                        '${dailyWaterLiters.toStringAsFixed(2)} ลิตร (~$glassCount แก้ว 250ml)',
                         style: theme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: LinearProgressIndicator(
-                  value: carbPercent,
-                  minHeight: 8,
-                  backgroundColor: Colors.grey[200],
-                  valueColor: AlwaysStoppedAnimation<Color>(carbColor),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Center(
-                child: Text(
-                  carbStatus,
-                  style: theme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: carbColor,
-                  ),
-                ),
-              ),
-
             ],
           ),
         );
