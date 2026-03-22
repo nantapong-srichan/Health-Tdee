@@ -1489,10 +1489,11 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     required TextTheme theme,
   }) {
     final options = [
-      {'value': 'veryActive', 'label': 'ออกกำลังกายทุกวัน'},
-      {'value': 'active', 'label': 'ออกกำลังกาย 6-7 ครั้งต่อสัปดาห์'},
-      {'value': 'moderate', 'label': 'ออกกำลังกาย 3-5 ครั้งต่อสัปดาห์'},
+      {'value': 'sedentary', 'label': 'ไม่ออกกำลังกาย หรือน้อยมาก'},
       {'value': 'light', 'label': 'ออกกำลังกาย 1-2 ครั้งต่อสัปดาห์'},
+      {'value': 'moderate', 'label': 'ออกกำลังกาย 3-5 ครั้งต่อสัปดาห์'},
+      {'value': 'active', 'label': 'ออกกำลังกาย 6-7 ครั้งต่อสัปดาห์'},
+      {'value': 'veryActive', 'label': 'ออกกำลังกายทุกวัน'},
     ];
 
     return options.map((option) {

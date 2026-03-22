@@ -35,7 +35,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? _errorMessage;
   bool _agreedToTerms = false;
   String? _selectedGender; // ชาย / หญิง
-  String _selectedExerciseFrequency = 'daily'; // ความถี่การออกกำลังกาย
+  String _selectedExerciseFrequency = 'moderate'; // ความถี่การออกกำลังกาย
   String _selectedGoal = 'weight_loss'; // เป้าหมายการใช้แอป
   
   // Disease checkboxes
@@ -1018,10 +1018,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   List<Widget> _buildExerciseFrequencyOptions() {
     final options = [
-      {'value': 'veryActive', 'label': 'ออกกำลังกายทุกวัน'},
-      {'value': 'active', 'label': 'ออกกำลังกาย 6-7 ครั้งต่อสัปดาห์'},
-      {'value': 'moderate', 'label': 'ออกกำลังกาย 3-5 ครั้งต่อสัปดาห์'},
+      {'value': 'sedentary', 'label': 'ไม่ออกกำลังกาย หรือน้อยมาก'},
       {'value': 'light', 'label': 'ออกกำลังกาย 1-2 ครั้งต่อสัปดาห์'},
+      {'value': 'moderate', 'label': 'ออกกำลังกาย 3-5 ครั้งต่อสัปดาห์'},
+      {'value': 'active', 'label': 'ออกกำลังกาย 6-7 ครั้งต่อสัปดาห์'},
+      {'value': 'veryActive', 'label': 'ออกกำลังกายทุกวัน'},
     ];
 
     return options.map((option) {
