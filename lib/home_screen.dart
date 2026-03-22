@@ -129,6 +129,9 @@ class _HomeScreenState extends State<HomeScreen> {
               (userProfile['height'] as num).toDouble());
         }
         if (userProfile['profileImageUrl'] != null) {
+          // Clear image cache before updating to new profile image
+          imageCache.clear();
+          imageCache.clearLiveImages();
           sessionData.updateProfileImageUrl(
               userProfile['profileImageUrl'] as String);
         }

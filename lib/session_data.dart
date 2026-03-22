@@ -172,6 +172,9 @@ class SessionData with ChangeNotifier {
 
   // ฟังก์ชันสำหรับเคลียร์ข้อมูล
   void clearData() {
+    userName = null;
+    profileImagePath = null;
+    profileImageUrl = null;
     dateOfBirth = null;
     gender = null;
     height = null;
@@ -188,6 +191,10 @@ class SessionData with ChangeNotifier {
     proteinGrams = null;
     diseases = null;
     diabetesCarbLimit = null;
+    diabetesType = null;
+    hypertensionSodiumLimit = null;
+    mealsByDate.clear();
+    selectedDate = null;
     notifyListeners();
   }
 

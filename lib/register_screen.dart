@@ -197,7 +197,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         goal: _selectedGoal,
         dailyCalorieGoal: 2000,
         diseases: selectedDiseases,
-        diabetesType: _diabetesType, // เพิ่ม diabetesType
+        // Send empty string if diabetes not selected, otherwise send the type
+        diabetesType: _diseases['diabetes'] == true ? _diabetesType : '',
         diabetesCarbLimit: diabetesCarbLimit,
       );
 
@@ -209,8 +210,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         );
 
         if (loginResult['success'] && mounted) {
-          // Update SessionData with user information
+          // Clear old session data and update with new user information
           final sessionData = Provider.of<SessionData>(context, listen: false);
+          sessionData.clearData(); // Clear old data first
+          
           sessionData.updateUserName(_nameController.text.trim());
           sessionData.updateDateOfBirth(_dobController.text);
           sessionData.updateHeight(_heightController.text);
@@ -913,7 +916,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: RadioListTile<String>(
                   title: Text('ไม่มี', style: GoogleFonts.kanit()),
                   value: '',
-                  groupValue: _diseases['diabetes'] == false ? '' : (_diabetesType ?? ''),
+                  groupValue: _diabetesType ?? '',
                   onChanged: _isLoading
                       ? null
                       : (value) {
@@ -930,7 +933,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: RadioListTile<String>(
                   title: Text('ประเภทที่ 1', style: GoogleFonts.kanit()),
                   value: 'type1',
-                  groupValue: _diseases['diabetes'] == true ? (_diabetesType ?? '') : '',
+                  groupValue: _diabetesType ?? '',
                   onChanged: _isLoading
                       ? null
                       : (value) {
@@ -947,7 +950,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: RadioListTile<String>(
                   title: Text('ประเภทที่ 2', style: GoogleFonts.kanit()),
                   value: 'type2',
-                  groupValue: _diseases['diabetes'] == true ? (_diabetesType ?? '') : '',
+                  groupValue: _diabetesType ?? '',
                   onChanged: _isLoading
                       ? null
                       : (value) {

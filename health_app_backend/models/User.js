@@ -101,8 +101,8 @@ const userSchema = new mongoose.Schema(
     diabetesType: {
       type: String,
       enum: {
-        values: ['type1', 'type2'],
-        message: 'Diabetes type must be either "type1" or "type2"'
+        values: ['', 'type1', 'type2'],
+        message: 'Diabetes type must be either "type1" or "type2" or empty string'
       },
       default: null,
       description: 'Type of diabetes (type1 or type2)',

@@ -77,7 +77,7 @@ exports.register = async (req, res, next) => {
     if (diseases && Array.isArray(diseases) && diseases.length > 0) {
       userData.diseases = diseases;
     }
-    if (diabetesType) {
+    if (diabetesType !== undefined && diabetesType !== null) {
       userData.diabetesType = diabetesType;
     }
     if (diabetesCarbLimit) {

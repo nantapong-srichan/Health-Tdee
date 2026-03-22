@@ -58,10 +58,19 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (result['success']) {
         if (mounted) {
-          // Update SessionData with user health metrics from login response
+          // Clear old session data before updating with new user data
           final sessionData = Provider.of<SessionData>(context, listen: false);
+          sessionData.clearData();
+          
+          // Update SessionData with user health metrics from login response
           final userProfile = result['user'] as Map<String, dynamic>?;
           if (userProfile != null) {
+            if (userProfile['name'] != null) {
+              sessionData.updateUserName(userProfile['name'] as String);
+            }
+            if (userProfile['profileImageUrl'] != null) {
+              sessionData.updateProfileImageUrl(userProfile['profileImageUrl'] as String);
+            }
             if (userProfile['tdee'] != null) {
               sessionData.updateTDEE((userProfile['tdee'] as num).toDouble());
             }
