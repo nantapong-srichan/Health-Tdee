@@ -267,11 +267,11 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
 
                 // Menu Items
                 _buildMenuSection(kanitTheme, [
-                  {
-                    'icon': Icons.person_outline,
-                    'title': 'ข้อมูลโปรไฟล์',
-                    'onTap': () => _editProfile(context, kanitTheme, sessionData),
-                  },
+                  // {
+                  //   'icon': Icons.person_outline,
+                  //   'title': 'ข้อมูลโปรไฟล์',
+                  //   'onTap': () => _editProfile(context, kanitTheme, sessionData),
+                  // },
                   {
                     'icon': Icons.email_outlined,
                     'title': 'อีเมล',

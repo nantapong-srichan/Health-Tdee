@@ -2141,8 +2141,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
-              // Display carbs chart for Type 2 diabetes patients (7-day view)
-              if (data.hasDiabetes() && data.diabetesType == 'type2') ...[
+              // Display carbs chart for diabetes patients (7-day view) - Type 1 and Type 2
+              if (data.hasDiabetes() && (data.diabetesType == 'type1' || data.diabetesType == 'type2')) ...[
                 _build7DaysCarbsChart(theme, data),
               ],
               // Display sodium charts for hypertension patients (7-day view)
@@ -2165,7 +2165,7 @@ class _HomeScreenState extends State<HomeScreen> {
         }
         
         final chartData = _get7DaysCarbsData(data);
-        final carbLimit = data.diabetesCarbLimit ?? 150.0;
+        final carbLimit = data.diabetesCarbLimit ?? (data.diabetesType == 'type1' ? 190.0 : 150.0);
         // Calculate dynamic maxY based on actual data
         final maxDataValue = chartData.isEmpty ? carbLimit : chartData.map((d) => d.y).reduce((a, b) => a > b ? a : b);
         final calculatedMaxY = (maxDataValue * 1.15).clamp(carbLimit * 1.3, double.infinity);
@@ -2445,8 +2445,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
-              // Display carbs chart for Type 2 diabetes patients (14-day view)
-              if (data.hasDiabetes() && data.diabetesType == 'type2') ...[
+              // Display carbs chart for diabetes patients (14-day view) - Type 1 and Type 2
+              if (data.hasDiabetes() && (data.diabetesType == 'type1' || data.diabetesType == 'type2')) ...[
                 _build14DaysCarbsChart(theme, data),
               ],
               // Display sodium charts for hypertension patients (14-day view)
@@ -2469,7 +2469,7 @@ class _HomeScreenState extends State<HomeScreen> {
         }
         
         final chartData = _get14DaysCarbsData(data);
-        final carbLimit = data.diabetesCarbLimit ?? 150.0;
+        final carbLimit = data.diabetesCarbLimit ?? (data.diabetesType == 'type1' ? 190.0 : 150.0);
         // Calculate dynamic maxY based on actual data
         final maxDataValue = chartData.isEmpty ? carbLimit : chartData.map((d) => d.y).reduce((a, b) => a > b ? a : b);
         final calculatedMaxY = (maxDataValue * 1.15).clamp(carbLimit * 1.3, double.infinity);
