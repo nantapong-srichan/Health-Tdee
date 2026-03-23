@@ -8,6 +8,7 @@ import 'services/auth_service.dart';
 import 'session_data.dart';
 import 'home_screen.dart';
 import 'login_screen.dart';
+import 'terms_of_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -712,6 +713,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               color: const Color(0xFFFABB5A),
                               fontWeight: FontWeight.bold,
                             ),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () {
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => TermsOfServiceDialog(
+                                    title: 'ข้อตกลงการใช้งาน',
+                                    content: TermsOfService.termsContent,
+                                  ),
+                                );
+                              },
                           ),
                         ],
                       ),
