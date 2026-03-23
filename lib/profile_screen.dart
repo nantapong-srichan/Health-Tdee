@@ -283,6 +283,11 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                     'onTap': () => _changePassword(context, kanitTheme),
                   },
                   {
+                    'icon': Icons.scale,
+                    'title': 'อัพเดทน้ำหนัก',
+                    'onTap': () => _updateWeightAndRecalculateTDEE(context, kanitTheme, sessionData),
+                  },
+                  {
                     'icon': Icons.health_and_safety,
                     'title': 'ข้อมูลสุขภาพ',
                     'onTap': () => _editHealthInfo(context, kanitTheme, sessionData),
@@ -378,6 +383,300 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
           },
         ),
       ),
+    );
+  }
+
+  void _updateWeightAndRecalculateTDEE(BuildContext context, TextTheme theme, SessionData sessionData) {
+    if (_userProfile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ยังไม่สามารถโหลดข้อมูลได้'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final userProfile = _userProfile!['user'] as Map<String, dynamic>?;
+    if (userProfile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ไม่พบข้อมูลผู้ใช้'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final weightController = TextEditingController(
+      text: userProfile['weight']?.toString() ?? '',
+    );
+    bool _isLoading = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: false,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                left: 20,
+                right: 20,
+                top: 20,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'อัพเดทน้ำหนัก',
+                      style: theme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'กรอกน้ำหนักปัจจุบันของคุณ (กิโลกรัม)',
+                      style: theme.bodyMedium?.copyWith(color: Colors.grey[600]),
+                    ),
+                    const SizedBox(height: 20),
+                    TextField(
+                      controller: weightController,
+                      keyboardType: TextInputType.number,
+                      enabled: !_isLoading,
+                      decoration: InputDecoration(
+                        hintText: 'กรอกน้ำหนัก (กก)',
+                        prefixIcon: const Icon(Icons.scale),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _isLoading
+                            ? null
+                            : () async {
+                                if (weightController.text.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('กรุณากรอกน้ำหนัก'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                  return;
+                                }
+
+                                setState(() {
+                                  _isLoading = true;
+                                });
+
+                                try {
+                                  final newWeight = double.parse(weightController.text);
+
+                                  // Get current data
+                                  final height = (userProfile['height'] as num?)?.toDouble() ?? 170;
+                                  final age = userProfile['age'] as int? ?? 30;
+                                  final gender = userProfile['gender'] as String? ?? 'male';
+                                  final activityLevel = userProfile['activityLevel'] as String? ?? 'moderate';
+
+                                  // Calculate new BMR
+                                  final newBMR = BMRCalculator.calculate(
+                                    gender: gender,
+                                    weight: newWeight,
+                                    height: height,
+                                    age: age,
+                                  );
+
+                                  // Calculate new TDEE
+                                  final newTDEE = BMRCalculator.calculateTDEE(
+                                    bmr: newBMR,
+                                    activityLevel: activityLevel,
+                                  );
+
+                                  print('🔢 Weight Update Calculation:');
+                                  print('  Old Weight: ${userProfile['weight']}');
+                                  print('  New Weight: $newWeight');
+                                  print('  New BMR: $newBMR');
+                                  print('  New TDEE: $newTDEE');
+
+                                  // Update via API
+                                  final result = await _authService.updateProfile(
+                                    name: userProfile['name'] ?? 'User',
+                                    age: age,
+                                    weight: newWeight,
+                                    height: height,
+                                    gender: gender,
+                                    bmr: newBMR,
+                                    activityLevel: activityLevel,
+                                    goal: userProfile['goal'] ?? 'maintain',
+                                    dailyCalorieGoal: newTDEE.toInt(),
+                                    diseases: (userProfile['diseases'] as List?)?.cast<String>() ?? [],
+                                    diabetesType: userProfile['diabetesType'],
+                                    diabetesCarbLimit: (userProfile['diabetesCarbLimit'] as num?)?.toDouble(),
+                                  );
+
+                                  if (mounted) {
+                                    if (result['success']) {
+                                      // Update SessionData
+                                      sessionData.updateWeightDouble(newWeight);
+                                      sessionData.updateBMR(newBMR);
+                                      sessionData.updateTDEE(newTDEE);
+
+                                      // Reload profile
+                                      await _loadUserProfile();
+
+                                      if (mounted) {
+                                        showDialog(
+                                          context: context,
+                                          builder: (context) => Dialog(
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(20),
+                                            ),
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(24),
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Container(
+                                                    width: 80,
+                                                    height: 80,
+                                                    decoration: const BoxDecoration(
+                                                      shape: BoxShape.circle,
+                                                      color: Color(0xFFFABB5A),
+                                                    ),
+                                                    child: const Icon(
+                                                      Icons.check_rounded,
+                                                      color: Colors.white,
+                                                      size: 48,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 20),
+                                                  Text(
+                                                    'อัพเดทสำเร็จ',
+                                                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                                      fontWeight: FontWeight.bold,
+                                                      color: Colors.black87,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 12),
+                                                  Column(
+                                                    children: [
+                                                      Text(
+                                                        'น้ำหนัก: ${newWeight.toStringAsFixed(1)} กก',
+                                                        style: Theme.of(context).textTheme.bodyMedium,
+                                                      ),
+                                                      const SizedBox(height: 8),
+                                                      Text(
+                                                        'TDEE: ${newTDEE.toStringAsFixed(0)} kcal/วัน',
+                                                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                                          fontWeight: FontWeight.bold,
+                                                          color: const Color(0xFFFABB5A),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  const SizedBox(height: 24),
+                                                  SizedBox(
+                                                    width: double.infinity,
+                                                    child: ElevatedButton(
+                                                      onPressed: () {
+                                                        Navigator.pop(context);
+                                                        Navigator.pop(context);
+                                                      },
+                                                      style: ElevatedButton.styleFrom(
+                                                        backgroundColor: const Color(0xFFFABB5A),
+                                                        padding: const EdgeInsets.symmetric(vertical: 14),
+                                                        shape: RoundedRectangleBorder(
+                                                          borderRadius: BorderRadius.circular(12),
+                                                        ),
+                                                      ),
+                                                      child: const Text(
+                                                        'ปิด',
+                                                        style: TextStyle(
+                                                          color: Colors.white,
+                                                          fontWeight: FontWeight.w600,
+                                                          fontSize: 16,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    } else {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(result['message'] ?? 'เกิดข้อผิดพลาด'),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                } catch (e) {
+                                  print('ERROR: $e');
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('เกิดข้อผิดพลาด: $e'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                } finally {
+                                  if (mounted) {
+                                    setState(() {
+                                      _isLoading = false;
+                                    });
+                                  }
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _isLoading
+                              ? Colors.grey[400]
+                              : const Color(0xFFFABB5A),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: _isLoading
+                            ? SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.grey[600]!,
+                                  ),
+                                ),
+                              )
+                            : Text(
+                                'บันทึก',
+                                style: theme.titleMedium?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -1291,7 +1590,14 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                                     age: age,
                                   );
 
+                                  // Calculate TDEE
+                                  final tdee = BMRCalculator.calculateTDEE(
+                                    bmr: bmr,
+                                    activityLevel: _selectedActivityLevel,
+                                  );
+
                                   print('Calculated BMR: $bmr');
+                                  print('Calculated TDEE: $tdee');
 
                                   // Update profile via API
                                   print('Calling updateProfile API...');
@@ -1304,7 +1610,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                                     bmr: bmr,
                                     activityLevel: _selectedActivityLevel,
                                     goal: _selectedGoal,
-                                    dailyCalorieGoal: 2000,
+                                    dailyCalorieGoal: tdee.toInt(),
                                     diseases: (userProfile['diseases'] as List?)?.cast<String>() ?? [],
                                     diabetesType: userProfile['diabetesType'],
                                     diabetesCarbLimit: (userProfile['diabetesCarbLimit'] as num?)?.toDouble(),
@@ -1323,6 +1629,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                                       sessionData.updateGoal(_selectedGoal);
                                       sessionData.updateGender(_selectedGender);
                                       sessionData.updateBMR(bmr);
+                                      sessionData.updateTDEE(tdee);
                                       // Update disease information
                                       if (userProfile['diseases'] != null) {
                                         sessionData.updateDiseases((userProfile['diseases'] as List?)?.cast<String>());
