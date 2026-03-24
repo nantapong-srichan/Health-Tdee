@@ -125,24 +125,70 @@ class _ImagePickerScreenState extends State<ImagePickerScreen> {
   void _submitImage() async {
     if (_imageFile == null) return;
 
-    setState(() => _isLoading = true);
-
     // แปลง File -> XFile ชั่วคราวเพื่อให้ service ทำงานได้
-    // (หมายเหตุ: TFLiteService ของเราจะอ่าน _imageFile.path โดยตรง)
     final xFileImage = XFile(_imageFile!.path);
+
+    // แสดง loading dialog
+    if (!mounted) return;
+    
+    // ใช้ showDialog เพื่อแสดง popup
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const SizedBox(
+                  width: 60,
+                  height: 60,
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Color(0xFFFABB5A),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'กำลังประมวลผลรูปภาพ...',
+                  style: GoogleFonts.kanit(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    // เพิ่ม delay เล็กน้อยให้ dialog render ก่อน
+    await Future.delayed(const Duration(milliseconds: 100));
 
     // รันโมเดล
     RecognitionResult? result = await _tfliteService.runFoodRecognition(xFileImage);
 
+    if (!mounted) return;
+    
+    // ปิด loading dialog
+    Navigator.of(context).pop();
+
     if (result == null) {
-      setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('ไม่สามารถประมวลผลรูปภาพได้')),
       );
       return;
     }
-
-    setState(() => _isLoading = false);
 
     // --- 4. ส่งไปหน้าผลลัพธ์ ---
     if (mounted) {
@@ -209,13 +255,7 @@ class _ImagePickerScreenState extends State<ImagePickerScreen> {
             ),
 
             // --- 3. แถบควบคุมด้านล่าง ---
-            if (_isLoading)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 36.0),
-                child: CircularProgressIndicator(color: Color(0xFFFABB5A)),
-              )
-            else
-              _buildBottomBar(),
+            _buildBottomBar(),
           ],
         ),
       ),

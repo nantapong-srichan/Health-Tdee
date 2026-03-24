@@ -6,7 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 class ImageUploadService {
   final String baseUrl;
   // ใช้ 10.0.2.2 สำหรับ Android emulator (ชี้ไปที่ host machine)
-  // ใช้ localhost สำหรับ iOS emulator และ web
+  // // ใช้ localhost สำหรับ iOS emulator และ web
   // const ImageUploadService({this.baseUrl = 'http://10.0.2.2:5000'}); // Backend port 5000
   //const ImageUploadService({this.baseUrl = 'https://health-app-backup.onrender.com'}); // Render backend
 
