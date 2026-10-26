@@ -1,6 +1,6 @@
 # Health App - Meal Tracking System
 
-A comprehensive Flutter health and meal tracking application with AI-powered food recognition and user profile management.
+A comprehensive Flutter health and meal tracking application with AI-powered food recognition and user profile management. For Graduation Project.
 
 ### Quick Start
 
